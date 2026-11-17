@@ -218,6 +218,48 @@ $("copy-api").addEventListener("click", async (e) => {
 	setTimeout(() => (btn.textContent = "Copy"), 1500);
 });
 
+// ---------- API docs disclosure ----------
+// One button shows/hides all detailed API docs. State lives on <html data-api-docs>
+// (set before first paint in index.html) and is remembered for the browser session.
+const DOCS_KEY = "dlp-datagen:api-docs";
+const docsToggle = $<HTMLButtonElement>("docs-toggle");
+const docsBody = $("api-docs-body");
+const docsLabel = docsToggle.querySelector(".docs-toggle-label")!;
+
+function setDocsOpen(open: boolean, remember = true) {
+	document.documentElement.dataset.apiDocs = open ? "open" : "closed";
+	docsToggle.setAttribute("aria-expanded", String(open));
+	docsLabel.textContent = open ? "Collapse" : "Expand";
+	docsBody.inert = !open;
+	if (remember) {
+		try {
+			sessionStorage.setItem(DOCS_KEY, open ? "open" : "closed");
+		} catch {
+			/* storage unavailable */
+		}
+	}
+}
+setDocsOpen(document.documentElement.dataset.apiDocs === "open", false);
+docsToggle.addEventListener("click", () => setDocsOpen(docsToggle.getAttribute("aria-expanded") !== "true"));
+
+/** Links into the docs (e.g. the endpoint names above) open them first, then scroll. */
+function revealDocTarget(hash: string): boolean {
+	const target = hash.length > 1 ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+	if (!target || !docsBody.contains(target)) return false;
+	if (docsToggle.getAttribute("aria-expanded") !== "true") setDocsOpen(true);
+	// Wait for the expand transition before scrolling so the position is final.
+	setTimeout(() => target.scrollIntoView({ block: "start" }), 320);
+	return true;
+}
+document.addEventListener("click", (e) => {
+	const a = (e.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
+	if (a && revealDocTarget(a.hash)) {
+		e.preventDefault();
+		history.replaceState(null, "", a.hash);
+	}
+});
+if (location.hash) revealDocTarget(location.hash);
+
 // Copy buttons on the static API examples: copy the whole command in the same block.
 document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((btn) =>
 	btn.addEventListener("click", async () => {

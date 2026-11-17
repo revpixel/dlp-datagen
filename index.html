@@ -13,6 +13,11 @@
 				const t = localStorage.getItem("dlp-datagen:theme");
 				if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 			} catch {}
+			// API docs start collapsed (only when JS runs), or open if opened earlier this session.
+			document.documentElement.dataset.apiDocs = "closed";
+			try {
+				if (sessionStorage.getItem("dlp-datagen:api-docs") === "open") document.documentElement.dataset.apiDocs = "open";
+			} catch {}
 		</script>
 		<link rel="stylesheet" href="/src/web/style.css" />
 	</head>
@@ -187,6 +192,20 @@
 			</section>
 
 			<!-- API documentation. Source of truth: src/api.ts and src/lib/generate.ts. -->
+			<div class="api-docs" id="api-docs">
+			<button type="button" class="card docs-toggle" id="docs-toggle" aria-expanded="true" aria-controls="api-docs-body">
+				<span class="step" aria-hidden="true">/</span>
+				<span class="docs-toggle-text">
+					<span class="docs-toggle-title">API documentation</span>
+					<span class="docs-toggle-sub">Endpoints, parameters, examples, limits &amp; errors</span>
+				</span>
+				<span class="docs-toggle-action" aria-hidden="true">
+					<span class="docs-toggle-label">Collapse</span>
+					<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+				</span>
+			</button>
+			<div class="docs-body" id="api-docs-body" role="region" aria-labelledby="docs-toggle">
+			<div class="docs-inner">
 			<section class="card ref-card" id="api-reference" aria-labelledby="ref-h">
 				<div class="card-head">
 					<h2 id="ref-h"><span class="step">/</span> API reference</h2>
@@ -353,6 +372,9 @@
 					</div>
 				</div>
 			</section>
+			</div>
+			</div>
+			</div>
 		</main>
 
 		<footer class="wrap foot">
