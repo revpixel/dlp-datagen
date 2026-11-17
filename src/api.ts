@@ -1,7 +1,9 @@
 import { CATEGORIES, FIELDS, PRESETS } from "./lib/fields.ts";
-import { FORMATS, MIME, OptionsError, generate, serialize, type Format } from "./lib/generate.ts";
+import { EXTENSION, FORMATS, MIME, OptionsError, generate, isBinary, render, type Format } from "./lib/generate.ts";
 
 export const MAX_API_ROWS = 10_000;
+/** XLSX, DOCX and PDF cost more CPU to build, so they get a lower cap. */
+export const MAX_API_DOCUMENT_ROWS = 2_000;
 
 const CORS = {
 	"Access-Control-Allow-Origin": "*",
@@ -16,7 +18,7 @@ function json(body: unknown, status = 200): Response {
 	});
 }
 
-function generateResponse(p: URLSearchParams): Response {
+async function generateResponse(p: URLSearchParams): Promise<Response> {
 	const preset = p.get("preset");
 	const fieldParam = p.get("fields");
 	let fields: string[];
@@ -31,6 +33,9 @@ function generateResponse(p: URLSearchParams): Response {
 	}
 	const format = (p.get("format") ?? "json") as Format;
 	if (!FORMATS.includes(format)) return json({ error: `format must be one of ${FORMATS.join(", ")}` }, 400);
+	if (isBinary(format) && rows > MAX_API_DOCUMENT_ROWS) {
+		return json({ error: `rows must be at most ${MAX_API_DOCUMENT_ROWS} for ${format}` }, 400);
+	}
 	const validParam = p.get("valid");
 	const valid = validParam === null || !["false", "0", "no"].includes(validParam.toLowerCase());
 	const header = p.get("header") !== "false";
@@ -43,17 +48,18 @@ function generateResponse(p: URLSearchParams): Response {
 			"Cache-Control": "no-store",
 			...CORS,
 		};
-		if (p.has("download")) {
-			headers["Content-Disposition"] = `attachment; filename="dlp-test-data.${format === "ndjson" ? "jsonl" : format}"`;
+		if (p.has("download") || isBinary(format)) {
+			headers["Content-Disposition"] = `attachment; filename="dlp-test-data.${EXTENSION[format]}"`;
 		}
-		return new Response(serialize(ds, format, header), { headers });
+		const body = await render(ds, format, header);
+		return new Response(body as BodyInit, { headers });
 	} catch (e) {
 		if (e instanceof OptionsError) return json({ error: e.message }, 400);
 		throw e;
 	}
 }
 
-export function handleApi(request: Request): Response {
+export async function handleApi(request: Request): Promise<Response> {
 	const url = new URL(request.url);
 	if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 	if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "Method not allowed" }, 405);
@@ -68,6 +74,7 @@ export function handleApi(request: Request): Response {
 				presets: PRESETS,
 				formats: FORMATS,
 				maxRows: MAX_API_ROWS,
+				maxDocumentRows: MAX_API_DOCUMENT_ROWS,
 			});
 		case "/api/generate":
 			return generateResponse(url.searchParams);

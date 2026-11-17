@@ -8,7 +8,8 @@ Values with check digits or structure rules (card numbers, SSNs, IBANs, ABA rout
 
 - **Web UI:** pick fields, row count and format, then preview, download or copy. Data is generated in the browser; nothing is sent to a server.
 - **API:** the same generator on Cloudflare Workers, for scripts and automated tests.
-- **Repeatable:** pass a seed to get identical output every time.
+- **Formats:** CSV, JSON, JSON Lines, TXT, Excel (.xlsx), Word (.docx) and PDF. DLP engines often inspect each file type differently, so test the ones your policies cover.
+- **Repeatable:** pass a seed to get identical output every time, down to the bytes of the XLSX, DOCX and PDF files.
 
 ## Fields
 
@@ -43,14 +44,18 @@ curl "https://dlp-datagen.revpixel.workers.dev/api/fields"
 |---|---|---|
 | `fields` | | Comma-separated field ids (see `/api/fields`) |
 | `preset` | `pii` | `pii`, `pci`, `phi`, `banking`, `gov`, `secrets`; ignored when `fields` is set |
-| `rows` | `10` | 1 to 10,000 |
-| `format` | `json` | `csv`, `json`, `ndjson`, `txt` |
+| `rows` | `10` | 1 to 10,000 (2,000 for `xlsx`, `docx`, `pdf`) |
+| `format` | `json` | `csv`, `json`, `ndjson`, `txt`, `xlsx`, `docx`, `pdf` |
 | `valid` | `true` | `false` for near-misses |
 | `seed` | random | Returned in the `X-DLP-Seed` response header |
-| `header` | `true` | CSV header row |
+| `header` | `true` | Header row for CSV and XLSX |
 | `download` | | Present = send as an attachment |
 
-The `txt` format writes labelled records (`SSN: 123-45-6789`), since many DLP rules require a keyword near the match.
+`xlsx` is one sheet with a bold, frozen header row. `txt`, `docx` and `pdf` write labelled records (`SSN: 123-45-6789`), since many DLP rules require a keyword near the match. PDFs contain real text (standard fonts, no images), so content inspection can read them. Document formats are always sent as attachments; save them with `curl -o`:
+
+```bash
+curl "https://dlp-datagen.revpixel.workers.dev/api/generate?preset=phi&rows=500&format=xlsx" -o phi.xlsx
+```
 
 ## Development
 
@@ -67,6 +72,7 @@ npm run deploy     # deploy to Cloudflare Workers (cf CLI)
 Layout:
 
 - `src/lib/` generators, checksums and serializers, shared by the browser and the Worker
+- `src/lib/documents.ts` and `src/lib/zip.ts` dependency-free XLSX, DOCX and PDF writers
 - `src/api.ts` API handler; `src/index.ts` Worker entry
 - `src/web/` and `index.html` web UI
 - `test/` tests (Node's built-in test runner)

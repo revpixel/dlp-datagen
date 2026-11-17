@@ -1,7 +1,15 @@
 import { CATEGORIES, FIELDS, PRESETS } from "../lib/fields.ts";
-import { MIME, generate, serialize, type Dataset, type Format } from "../lib/generate.ts";
+import { EXTENSION, MIME, generate, isBinary, render, type Dataset, type Format } from "../lib/generate.ts";
 
 const MAX_BROWSER_ROWS = 100_000;
+/** Word and PDF output runs to ~10 lines per record; keep files openable. */
+const MAX_BROWSER_DOCUMENT_ROWS = 10_000;
+const MAX_API_ROWS = 10_000;
+const MAX_API_DOCUMENT_ROWS = 2_000;
+
+function maxRows(format: Format): number {
+	return format === "docx" || format === "pdf" ? MAX_BROWSER_DOCUMENT_ROWS : MAX_BROWSER_ROWS;
+}
 const PREVIEW_ROWS = 50;
 const STORAGE_KEY = "dlp-datagen:settings";
 
@@ -19,8 +27,9 @@ const previewMeta = $("preview-meta");
 const downloadBtn = $<HTMLButtonElement>("download");
 const copyBtn = $<HTMLButtonElement>("copy");
 const apiCmd = $("api-cmd");
+const rowsHint = $("rows-hint");
 
-let output: { text: string; format: Format } | null = null;
+let output: { data: string | Uint8Array; format: Format } | null = null;
 
 // ---------- build field checkboxes ----------
 for (const cat of CATEGORIES) {
@@ -101,7 +110,7 @@ function restore() {
 	}
 	setFields(s?.fields?.length ? s.fields : PRESETS.pii.fields);
 	if (s?.rows) rowsEl.value = s.rows;
-	if (s?.format) formatEl.value = s.format;
+	if (s?.format && [...formatEl.options].some((o) => o.value === s.format)) formatEl.value = s.format;
 	if (s?.header === false) headerEl.checked = false;
 	if (s?.valid === false) document.querySelector<HTMLInputElement>('input[name="mode"][value="invalid"]')!.checked = true;
 }
@@ -111,17 +120,27 @@ function updateApiCmd() {
 	const params = new URLSearchParams();
 	const fields = selectedFields();
 	params.set("fields", fields.join(","));
-	params.set("rows", String(Math.min(Number(rowsEl.value) || 10, 10_000)));
-	params.set("format", formatEl.value);
+	const format = formatEl.value as Format;
+	params.set("rows", String(Math.min(Number(rowsEl.value) || 10, isBinary(format) ? MAX_API_DOCUMENT_ROWS : MAX_API_ROWS)));
+	params.set("format", format);
 	if (!mode()) params.set("valid", "false");
 	if (seedEl.value.trim()) params.set("seed", seedEl.value.trim());
-	if (formatEl.value === "csv" && !headerEl.checked) params.set("header", "false");
+	if ((format === "csv" || format === "xlsx") && !headerEl.checked) params.set("header", "false");
 	const qs = params.toString().replace(/%2C/g, ",");
-	apiCmd.textContent = `curl "${location.origin}/api/generate?${qs}"`;
+	const outFlag = isBinary(format) ? ` -o dlp-test-data.${EXTENSION[format]}` : "";
+	apiCmd.textContent = `curl "${location.origin}/api/generate?${qs}"${outFlag}`;
 }
 
 function onChange() {
-	headerEl.disabled = formatEl.value !== "csv";
+	const format = formatEl.value as Format;
+	headerEl.disabled = format !== "csv" && format !== "xlsx";
+	rowsEl.max = String(maxRows(format));
+	rowsHint.textContent = `(max ${maxRows(format).toLocaleString()})`;
+	if (output && output.format !== format) {
+		output = null;
+		downloadBtn.disabled = copyBtn.disabled = true;
+		setStatus("Format changed: press Generate again.");
+	}
 	updateApiCmd();
 	save();
 }
@@ -159,37 +178,55 @@ function renderPreview(ds: Dataset) {
 	previewMeta.textContent = `Showing ${shown} of ${ds.records.length.toLocaleString()} rows · seed ${ds.seed}`;
 }
 
-$("generate").addEventListener("click", () => {
+const generateBtn = $<HTMLButtonElement>("generate");
+generateBtn.addEventListener("click", async () => {
 	const fields = selectedFields();
 	const rows = Number(rowsEl.value);
-	if (!fields.length) return setStatus("Choose at least one field.", true);
-	if (!Number.isInteger(rows) || rows < 1 || rows > MAX_BROWSER_ROWS) {
-		return setStatus(`Rows must be a whole number from 1 to ${MAX_BROWSER_ROWS.toLocaleString()}.`, true);
-	}
-	const t0 = performance.now();
-	const ds = generate({ fields, rows, valid: mode(), seed: seedEl.value });
 	const format = formatEl.value as Format;
-	output = { text: serialize(ds, format, headerEl.checked), format };
-	renderPreview(ds);
-	downloadBtn.disabled = copyBtn.disabled = false;
-	setStatus(`Generated ${rows.toLocaleString()} rows in ${Math.round(performance.now() - t0)} ms.`);
+	const max = maxRows(format);
+	if (!fields.length) return setStatus("Choose at least one field.", true);
+	if (!Number.isInteger(rows) || rows < 1 || rows > max) {
+		return setStatus(`Rows must be a whole number from 1 to ${max.toLocaleString()} for this format.`, true);
+	}
+	generateBtn.disabled = true;
+	setStatus("Generating…");
+	try {
+		const t0 = performance.now();
+		const ds = generate({ fields, rows, valid: mode(), seed: seedEl.value });
+		const data = await render(ds, format, headerEl.checked);
+		output = { data, format };
+		renderPreview(ds);
+		downloadBtn.disabled = false;
+		copyBtn.disabled = typeof data !== "string";
+		const size = typeof data === "string" ? new Blob([data]).size : data.length;
+		setStatus(`Generated ${rows.toLocaleString()} rows (${formatBytes(size)}) in ${Math.round(performance.now() - t0)} ms.`);
+	} catch (e) {
+		setStatus(`Couldn't generate: ${e instanceof Error ? e.message : e}`, true);
+	} finally {
+		generateBtn.disabled = false;
+	}
 });
+
+function formatBytes(n: number): string {
+	if (n < 1024) return `${n} B`;
+	if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+	return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 downloadBtn.addEventListener("click", () => {
 	if (!output) return;
-	const ext = output.format === "ndjson" ? "jsonl" : output.format;
-	const url = URL.createObjectURL(new Blob([output.text], { type: MIME[output.format] }));
+	const url = URL.createObjectURL(new Blob([output.data as BlobPart], { type: MIME[output.format] }));
 	const a = document.createElement("a");
 	a.href = url;
-	a.download = `dlp-test-data.${ext}`;
+	a.download = `dlp-test-data.${EXTENSION[output.format]}`;
 	a.click();
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 copyBtn.addEventListener("click", async () => {
-	if (!output) return;
+	if (!output || typeof output.data !== "string") return;
 	try {
-		await navigator.clipboard.writeText(output.text);
+		await navigator.clipboard.writeText(output.data);
 		setStatus("Copied to clipboard.");
 	} catch {
 		setStatus("Couldn't copy: clipboard access was blocked.", true);

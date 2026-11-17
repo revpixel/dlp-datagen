@@ -1,15 +1,50 @@
+import { toDocx, toPdf, toXlsx } from "./documents.ts";
 import { FIELD_MAP, Row, type Field } from "./fields.ts";
 import { Rng, randomSeed } from "./rng.ts";
 
-export type Format = "csv" | "json" | "ndjson" | "txt";
-export const FORMATS: readonly Format[] = ["csv", "json", "ndjson", "txt"];
+export type TextFormat = "csv" | "json" | "ndjson" | "txt";
+export type BinaryFormat = "xlsx" | "docx" | "pdf";
+export type Format = TextFormat | BinaryFormat;
+export const FORMATS: readonly Format[] = ["csv", "json", "ndjson", "txt", "xlsx", "docx", "pdf"];
+export const BINARY_FORMATS: readonly Format[] = ["xlsx", "docx", "pdf"];
+
+export function isBinary(f: Format): f is BinaryFormat {
+	return BINARY_FORMATS.includes(f);
+}
 
 export const MIME: Record<Format, string> = {
 	csv: "text/csv; charset=utf-8",
 	json: "application/json; charset=utf-8",
 	ndjson: "application/x-ndjson; charset=utf-8",
 	txt: "text/plain; charset=utf-8",
+	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	pdf: "application/pdf",
 };
+
+export const EXTENSION: Record<Format, string> = {
+	csv: "csv",
+	json: "json",
+	ndjson: "jsonl",
+	txt: "txt",
+	xlsx: "xlsx",
+	docx: "docx",
+	pdf: "pdf",
+};
+
+/** Produce the file for any format: a string for text formats, bytes for documents. */
+export async function render(ds: Dataset, format: Format, header = true): Promise<string | Uint8Array> {
+	switch (format) {
+		case "xlsx":
+			return toXlsx(ds, header);
+		case "docx":
+			return toDocx(ds);
+		case "pdf":
+			return toPdf(ds);
+		default:
+			return serialize(ds, format, header);
+	}
+}
 
 export interface GenerateOptions {
 	fields: readonly string[];
@@ -52,7 +87,7 @@ function csvCell(v: string): string {
 	return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-export function serialize(ds: Dataset, format: Format, header = true): string {
+export function serialize(ds: Dataset, format: TextFormat, header = true): string {
 	const ids = ds.fields.map((f) => f.id);
 	switch (format) {
 		case "csv": {

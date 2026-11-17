@@ -36,7 +36,7 @@
 				<h2 id="opts-h">Options</h2>
 				<div class="options">
 					<label class="opt">
-						<span>Rows</span>
+						<span>Rows <small id="rows-hint"></small></span>
 						<input type="number" id="rows" min="1" max="100000" value="100" inputmode="numeric" />
 					</label>
 					<label class="opt">
@@ -46,6 +46,9 @@
 							<option value="json">JSON</option>
 							<option value="ndjson">JSON Lines</option>
 							<option value="txt">Text (labelled records)</option>
+							<option value="xlsx">Excel (.xlsx)</option>
+							<option value="docx">Word (.docx, labelled records)</option>
+							<option value="pdf">PDF (labelled records)</option>
 						</select>
 					</label>
 					<label class="opt">
@@ -57,7 +60,7 @@
 						<label><input type="radio" name="mode" value="valid" checked /> Valid <small>should trigger DLP</small></label>
 						<label><input type="radio" name="mode" value="invalid" /> Invalid <small>near-misses that should not</small></label>
 					</fieldset>
-					<label class="opt check"><input type="checkbox" id="header" checked /> CSV header row</label>
+					<label class="opt check"><input type="checkbox" id="header" checked /> Header row (CSV, Excel)</label>
 				</div>
 				<div class="actions">
 					<button type="button" class="primary" id="generate">Generate</button>
@@ -79,7 +82,7 @@
 
 			<section class="panel" aria-labelledby="api-h">
 				<h2 id="api-h">API</h2>
-				<p>The same generator runs as an API, for scripts and automated tests. Up to 10,000 rows per request. This command matches your current settings:</p>
+				<p>The same generator runs as an API, for scripts and automated tests. Up to 10,000 rows per request (2,000 for XLSX, DOCX and PDF). This command matches your current settings:</p>
 				<pre class="code"><code id="api-cmd"></code></pre>
 				<p class="small">
 					Endpoints: <code>/api/generate</code> (params <code>fields</code> or <code>preset</code>, <code>rows</code>, <code>format</code>,
