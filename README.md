@@ -1,5 +1,7 @@
 # DLP Test Data Generator
 
+**Live:** https://dlp-datagen.revpixel.workers.dev
+
 Synthetic PII, PCI, PHI and secrets for testing data loss prevention (DLP) rules: Microsoft Purview, Netskope, Zscaler, Symantec, Forcepoint, Google DLP and similar tools.
 
 Values with check digits or structure rules (card numbers, SSNs, IBANs, ABA routing numbers, NPIs and more) pass the same validation DLP engines run, so they trigger real detections. **Invalid mode** produces near-misses that look right but fail validation, for checking false positives.
@@ -28,13 +30,13 @@ Fields in the same row agree with each other: the email matches the name, the ph
 
 ```bash
 # 10 PCI rows as CSV
-curl "https://<your-worker>/api/generate?preset=pci&rows=10&format=csv"
+curl "https://dlp-datagen.revpixel.workers.dev/api/generate?preset=pci&rows=10&format=csv"
 
 # Specific fields, invalid near-misses, fixed seed
-curl "https://<your-worker>/api/generate?fields=full_name,ssn,cc_number&rows=100&valid=false&seed=run-42"
+curl "https://dlp-datagen.revpixel.workers.dev/api/generate?fields=full_name,ssn,cc_number&rows=100&valid=false&seed=run-42"
 
 # List all fields and presets
-curl "https://<your-worker>/api/fields"
+curl "https://dlp-datagen.revpixel.workers.dev/api/fields"
 ```
 
 | Parameter | Default | Notes |

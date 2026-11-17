@@ -6,7 +6,7 @@
 		"dev": "cf dev",
 		"build": "cf build",
 		"deploy": "cf deploy",
-		"test": "node --test test/",
+		"test": "node --test \"test/**/*.test.ts\"",
 		"typecheck": "cf workers types && tsc && tsc -p tsconfig.web.json"
 	},
 	"devDependencies": {
