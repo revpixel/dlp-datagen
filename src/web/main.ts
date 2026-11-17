@@ -218,6 +218,20 @@ $("copy-api").addEventListener("click", async (e) => {
 	setTimeout(() => (btn.textContent = "Copy"), 1500);
 });
 
+// Copy buttons on the static API examples: copy the whole command in the same block.
+document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((btn) =>
+	btn.addEventListener("click", async () => {
+		const text = btn.closest(".example")?.querySelector("pre code")?.textContent ?? "";
+		try {
+			await navigator.clipboard.writeText(text);
+			btn.textContent = "Copied";
+		} catch {
+			btn.textContent = "Blocked";
+		}
+		setTimeout(() => (btn.textContent = "Copy"), 1500);
+	}),
+);
+
 // ---------- change handling ----------
 function onChange() {
 	const f = format();

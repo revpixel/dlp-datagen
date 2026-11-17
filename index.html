@@ -181,9 +181,177 @@
 					<pre><code id="api-cmd"></code></pre>
 				</div>
 				<dl class="endpoints">
-					<div><dt><code>GET /api/generate</code></dt><dd><code>fields</code> or <code>preset</code>, <code>rows</code>, <code>format</code>, <code>valid</code>, <code>seed</code>, <code>header</code>, <code>download</code></dd></div>
-					<div><dt><code>GET /api/fields</code></dt><dd>Every field, preset and format, as JSON</dd></div>
+					<div><dt><a href="#ref-generate"><code>GET /api/generate</code></a></dt><dd><code>fields</code> or <code>preset</code>, <code>rows</code>, <code>format</code>, <code>valid</code>, <code>seed</code>, <code>header</code>, <code>download</code></dd></div>
+					<div><dt><a href="#ref-fields"><code>GET /api/fields</code></a></dt><dd>Every field, preset and format, as JSON</dd></div>
 				</dl>
+			</section>
+
+			<!-- API documentation. Source of truth: src/api.ts and src/lib/generate.ts. -->
+			<section class="card ref-card" id="api-reference" aria-labelledby="ref-h">
+				<div class="card-head">
+					<h2 id="ref-h"><span class="step">/</span> API reference</h2>
+					<span class="meta">No key needed · base URL <code>https://dlp.cyberdynenetwork.com</code></span>
+				</div>
+
+				<article class="endpoint" id="ref-generate">
+					<h3><span class="verb">GET</span> <code>/api/generate</code></h3>
+					<p class="ep-desc">Generates synthetic records and returns them in the requested format. Every parameter is optional: with none, you get 10 rows of the <code>pii</code> preset as JSON.</p>
+
+					<div class="params" role="table" aria-label="Query parameters for /api/generate">
+						<div class="param-row head" role="row">
+							<span role="columnheader">Parameter</span><span role="columnheader">Values</span><span role="columnheader">Default</span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>fields</code></span>
+							<span class="p-values" role="cell">Comma-separated field ids, e.g. <code>full_name,email,ssn</code>. Columns follow the order you list. Overrides <code>preset</code>. Ids come from <a href="#ref-fields"><code>/api/fields</code></a>.</span>
+							<span class="p-default" role="cell"><em>none</em></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>preset</code></span>
+							<span class="p-values" role="cell"><code>pii</code> <code>pci</code> <code>phi</code> <code>banking</code> <code>gov</code> <code>secrets</code>. Ignored when <code>fields</code> is set.</span>
+							<span class="p-default" role="cell"><code>pii</code></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>rows</code></span>
+							<span class="p-values" role="cell">Whole number, 1–10,000. At most 2,000 for <code>xlsx</code>, <code>docx</code> and <code>pdf</code>.</span>
+							<span class="p-default" role="cell"><code>10</code></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>format</code></span>
+							<span class="p-values" role="cell"><code>csv</code> <code>json</code> <code>ndjson</code> <code>txt</code> <code>xlsx</code> <code>docx</code> <code>pdf</code>. Lowercase only.</span>
+							<span class="p-default" role="cell"><code>json</code></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>valid</code></span>
+							<span class="p-values" role="cell"><code>false</code>, <code>0</code> or <code>no</code> (any case) returns near-misses: values that look right but fail their checksum. Any other value means valid. Near-misses are made only for fields with <code>"checksum": true</code>.</span>
+							<span class="p-default" role="cell"><code>true</code></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>seed</code></span>
+							<span class="p-values" role="cell">Any string. The same seed with the same <code>fields</code>, <code>rows</code> and <code>valid</code> returns identical data, in every format. The seed used is always returned in the <code>X-DLP-Seed</code> header.</span>
+							<span class="p-default" role="cell"><em>random</em></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>header</code></span>
+							<span class="p-values" role="cell"><code>false</code> (exactly) leaves out the header row. Applies to <code>csv</code> and <code>xlsx</code> only.</span>
+							<span class="p-default" role="cell"><code>true</code></span>
+						</div>
+						<div class="param-row" role="row">
+							<span class="p-name" role="cell"><code>download</code></span>
+							<span class="p-values" role="cell">Present with any value (or none) to get <code>Content-Disposition: attachment; filename="dlp-test-data.&lt;ext&gt;"</code>. <code>xlsx</code>, <code>docx</code> and <code>pdf</code> are always sent this way.</span>
+							<span class="p-default" role="cell"><em>inline</em></span>
+						</div>
+					</div>
+
+					<h4>Response</h4>
+					<div class="formats-ref" role="table" aria-label="Output formats">
+						<div class="fmt-row" role="row"><code role="cell">csv</code><span role="cell"><code>text/csv</code></span><span role="cell">Header row of field ids, then one line per record</span></div>
+						<div class="fmt-row" role="row"><code role="cell">json</code><span role="cell"><code>application/json</code></span><span role="cell">Array of objects keyed by field id</span></div>
+						<div class="fmt-row" role="row"><code role="cell">ndjson</code><span role="cell"><code>application/x-ndjson</code></span><span role="cell">One JSON object per line; downloads as <code>.jsonl</code></span></div>
+						<div class="fmt-row" role="row"><code role="cell">txt</code><span role="cell"><code>text/plain</code></span><span role="cell">Labelled records (<code>SSN: …</code>) for keyword-proximity rules</span></div>
+						<div class="fmt-row" role="row"><code role="cell">xlsx</code><span role="cell">Excel workbook</span><span role="cell">One sheet; bold, frozen header row of field labels</span></div>
+						<div class="fmt-row" role="row"><code role="cell">docx</code><span role="cell">Word document</span><span role="cell">Labelled records</span></div>
+						<div class="fmt-row" role="row"><code role="cell">pdf</code><span role="cell">PDF</span><span role="cell">Labelled records as real, extractable text</span></div>
+					</div>
+					<p class="ep-note">Every response carries <code>X-DLP-Seed</code> and <code>Cache-Control: no-store</code>, and allows any origin (CORS), with <code>X-DLP-Seed</code> readable from browser code.</p>
+				</article>
+
+				<article class="endpoint" id="ref-fields">
+					<h3><span class="verb">GET</span> <code>/api/fields</code></h3>
+					<p class="ep-desc">Everything the generator supports, for programmatic discovery: categories, every field (with whether it has a checksum), presets and the fields they contain, formats, and the row limits. No parameters.</p>
+					<details class="sample">
+						<summary>Sample response <span>trimmed: <code>fields</code> has every field, <code>presets</code> all six</span></summary>
+						<pre class="code-block"><code>{
+  "categories": ["Identity", "Contact", "Government ID", "Financial", "Health", "Secrets", "Network"],
+  "fields": [
+    { "id": "full_name", "label": "Full name", "category": "Identity", "checksum": false, "description": "First and last name" },
+    { "id": "cc_number", "label": "Credit card number", "category": "Financial", "checksum": true, "description": "Visa, Mastercard, Amex or Discover; Luhn-checked" },
+    …
+  ],
+  "presets": {
+    "pci": { "label": "PCI (cards)", "fields": ["full_name", "cc_number", "cc_brand", "cc_expiry", "cc_cvv", "zip"] },
+    …
+  },
+  "formats": ["csv", "json", "ndjson", "txt", "xlsx", "docx", "pdf"],
+  "maxRows": 10000,
+  "maxDocumentRows": 2000
+}</code></pre>
+					</details>
+				</article>
+
+				<article class="endpoint compact" id="ref-health">
+					<h3><span class="verb">GET</span> <code>/api/health</code></h3>
+					<p class="ep-desc">Returns <code>{ "ok": true }</code>. For uptime checks.</p>
+				</article>
+			</section>
+
+			<section class="card examples-card" id="api-examples" aria-labelledby="ex-h">
+				<div class="card-head">
+					<h2 id="ex-h"><span class="step">/</span> Examples</h2>
+					<span class="meta">Copy, paste, run</span>
+				</div>
+				<ul class="examples">
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Defaults: 10 rows of PII as JSON</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">A preset as CSV</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=pci&amp;rows=5&amp;format=csv"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Pick individual fields, in your column order</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?fields=full_name,email,ssn&amp;rows=5"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Near-misses that should <em>not</em> trigger DLP</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=pci&amp;rows=5&amp;valid=false"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Repeatable: same seed, same data every run</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?fields=full_name,cc_number&amp;rows=3&amp;seed=regression-1"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">JSON Lines, one record per line</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=phi&amp;rows=20&amp;format=ndjson"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Save as a file named by the server (<code>dlp-test-data.csv</code>)</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-flag">-OJ</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=pii&amp;rows=100&amp;format=csv&amp;download"</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">A PDF to test document inspection</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=phi&amp;rows=20&amp;format=pdf"</span> <span class="tok-flag">-o phi.pdf</span></code></pre>
+					</li>
+					<li class="example">
+						<div class="ex-head"><span class="ex-title">Discover fields, presets and formats</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/fields"</span></code></pre>
+					</li>
+				</ul>
+			</section>
+
+			<section class="card limits-card" id="api-limits" aria-labelledby="lim-h">
+				<div class="card-head">
+					<h2 id="lim-h"><span class="step">/</span> Limits &amp; errors</h2>
+				</div>
+				<div class="split-2">
+					<ul class="limits">
+						<li><b>10,000</b> rows per request; <b>2,000</b> for <code>xlsx</code>, <code>docx</code> and <code>pdf</code>.</li>
+						<li><code>GET</code> and <code>HEAD</code>. <code>OPTIONS</code> preflight returns <code>204</code>.</li>
+						<li>No authentication or API key.</li>
+						<li>Invalid requests stop at the first problem found and return JSON: <code>{ "error": "…" }</code>.</li>
+					</ul>
+					<div class="errors" role="table" aria-label="Error responses">
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">Unknown preset: &lt;name&gt;</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">Unknown field(s): &lt;ids&gt;</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">Choose at least one field.</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">rows must be an integer from 1 to 10000</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">rows must be at most 2000 for &lt;format&gt;</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">400</span><code role="cell">format must be one of csv, json, ndjson, txt, xlsx, docx, pdf</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">404</span><code role="cell">Not found</code></div>
+						<div class="err-row" role="row"><span class="status" role="cell">405</span><code role="cell">Method not allowed</code></div>
+					</div>
+				</div>
 			</section>
 		</main>
 
