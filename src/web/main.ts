@@ -1,60 +1,102 @@
-import { CATEGORIES, FIELDS, PRESETS } from "../lib/fields.ts";
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/jetbrains-mono";
+import { CATEGORIES, FIELDS, PRESETS, type Category } from "../lib/fields.ts";
 import { EXTENSION, MIME, generate, isBinary, render, type Dataset, type Format } from "../lib/generate.ts";
+import { randomSeed } from "../lib/rng.ts";
 
 const MAX_BROWSER_ROWS = 100_000;
 /** Word and PDF output runs to ~10 lines per record; keep files openable. */
 const MAX_BROWSER_DOCUMENT_ROWS = 10_000;
 const MAX_API_ROWS = 10_000;
 const MAX_API_DOCUMENT_ROWS = 2_000;
-
-function maxRows(format: Format): number {
-	return format === "docx" || format === "pdf" ? MAX_BROWSER_DOCUMENT_ROWS : MAX_BROWSER_ROWS;
-}
 const PREVIEW_ROWS = 50;
 const STORAGE_KEY = "dlp-datagen:settings";
+const THEME_KEY = "dlp-datagen:theme";
 
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const CATEGORY_ICONS: Record<Category, string> = {
+	Identity: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
+	Contact: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+	"Government ID": '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.5 1.7-2.2 3-2.2s2.4.7 3 2.2M15 10h3M15 13.5h3"/>',
+	Financial: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
+	Health: '<path d="M12 20s-8-4.6-8-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 8 2.8C20 15.4 12 20 12 20z"/><path d="M8 12h2.2l1.3-2.5 2 5 1.3-2.5H16"/>',
+	Secrets: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16.5 6.5l2.5 2.5M14.5 8.5l2 2"/>',
+	Network: '<rect x="9" y="3" width="6" height="5" rx="1.2"/><rect x="3" y="16" width="6" height="5" rx="1.2"/><rect x="15" y="16" width="6" height="5" rx="1.2"/><path d="M12 8v4M6 16v-2.5h12V16"/>',
+};
+
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const groupsEl = $("field-groups");
 const presetsEl = $("presets");
 const rowsEl = $<HTMLInputElement>("rows");
-const formatEl = $<HTMLSelectElement>("format");
 const seedEl = $<HTMLInputElement>("seed");
 const headerEl = $<HTMLInputElement>("header");
 const statusEl = $("status");
 const previewEl = $("preview");
 const previewMeta = $("preview-meta");
+const legendEl = $("legend");
 const downloadBtn = $<HTMLButtonElement>("download");
 const copyBtn = $<HTMLButtonElement>("copy");
+const generateBtn = $<HTMLButtonElement>("generate");
 const apiCmd = $("api-cmd");
 const rowsHint = $("rows-hint");
+const fieldCount = $("field-count");
+const modeHint = $("mode-hint");
 
 let output: { data: string | Uint8Array; format: Format } | null = null;
 
-// ---------- build field checkboxes ----------
+$("stat-fields").textContent = String(FIELDS.length);
+
+// ---------- theme ----------
+function currentTheme(): "light" | "dark" {
+	const set = document.documentElement.dataset.theme;
+	if (set === "light" || set === "dark") return set;
+	return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+$("theme-toggle").addEventListener("click", () => {
+	const next = currentTheme() === "dark" ? "light" : "dark";
+	document.documentElement.dataset.theme = next;
+	try {
+		localStorage.setItem(THEME_KEY, next);
+	} catch {
+		/* storage unavailable */
+	}
+});
+
+// ---------- field tiles ----------
 for (const cat of CATEGORIES) {
 	const group = document.createElement("div");
 	group.className = "group";
-	const h = document.createElement("h3");
-	h.textContent = cat;
-	group.append(h);
+	group.dataset.cat = cat;
+	const head = document.createElement("h3");
+	head.className = "group-head";
+	const icon = document.createElement("span");
+	icon.className = "group-icon";
+	icon.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${CATEGORY_ICONS[cat]}</svg>`;
+	head.append(icon, document.createTextNode(cat));
+	const tiles = document.createElement("div");
+	tiles.className = "tiles";
 	for (const f of FIELDS.filter((x) => x.category === cat)) {
 		const label = document.createElement("label");
+		label.className = "tile";
 		label.title = f.description;
 		const box = document.createElement("input");
 		box.type = "checkbox";
 		box.value = f.id;
 		box.name = "field";
-		label.append(box, document.createTextNode(f.label));
+		const name = document.createElement("span");
+		name.className = "tile-name";
+		name.textContent = f.label;
+		label.append(box, name);
 		if (f.checksum) {
 			const b = document.createElement("span");
 			b.className = "badge";
-			b.textContent = "validated";
-			b.title = "Has a checksum or structure rule; Invalid mode breaks it";
+			b.textContent = "checksum";
+			b.title = "Has a checksum or structure rule; near-miss mode breaks it";
 			label.append(b);
 		}
-		group.append(label);
+		tiles.append(label);
 	}
+	group.append(head, tiles);
 	groupsEl.append(group);
 }
 
@@ -63,9 +105,9 @@ for (const [key, p] of Object.entries(PRESETS)) {
 	chip.type = "button";
 	chip.className = "chip";
 	chip.textContent = p.label;
+	chip.dataset.preset = key;
 	chip.addEventListener("click", () => setFields(p.fields));
 	presetsEl.append(chip);
-	chip.dataset.preset = key;
 }
 
 function boxes(): HTMLInputElement[] {
@@ -85,16 +127,38 @@ function setFields(ids: readonly string[]) {
 $("select-all").addEventListener("click", () => setFields(FIELDS.map((f) => f.id)));
 $("select-none").addEventListener("click", () => setFields([]));
 
-function mode(): boolean {
-	return (document.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value ?? "valid") === "valid";
+function radioValue(name: string): string {
+	return document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? "";
 }
+function setRadio(name: string, value: string) {
+	const el = document.querySelector<HTMLInputElement>(`input[name="${name}"][value="${CSS.escape(value)}"]`);
+	if (el) el.checked = true;
+}
+const format = (): Format => (radioValue("format") || "csv") as Format;
+const isValidMode = (): boolean => radioValue("mode") !== "invalid";
+
+function maxRows(f: Format): number {
+	return f === "docx" || f === "pdf" ? MAX_BROWSER_DOCUMENT_ROWS : MAX_BROWSER_ROWS;
+}
+
+// ---------- quick controls ----------
+document.querySelectorAll<HTMLButtonElement>("[data-rows]").forEach((b) =>
+	b.addEventListener("click", () => {
+		rowsEl.value = String(Math.min(Number(b.dataset.rows), maxRows(format())));
+		onChange();
+	}),
+);
+$("seed-dice").addEventListener("click", () => {
+	seedEl.value = randomSeed().slice(0, 8);
+	onChange();
+});
 
 // ---------- settings persistence (per-browser convenience only) ----------
 function save() {
 	try {
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ fields: selectedFields(), rows: rowsEl.value, format: formatEl.value, valid: mode(), header: headerEl.checked }),
+			JSON.stringify({ fields: selectedFields(), rows: rowsEl.value, format: format(), valid: isValidMode(), header: headerEl.checked }),
 		);
 	} catch {
 		/* storage unavailable */
@@ -108,110 +172,166 @@ function restore() {
 	} catch {
 		s = null;
 	}
-	setFields(s?.fields?.length ? s.fields : PRESETS.pii.fields);
+	for (const b of boxes()) b.checked = (s?.fields?.length ? s.fields : PRESETS.pii.fields).includes(b.value);
 	if (s?.rows) rowsEl.value = s.rows;
-	if (s?.format && [...formatEl.options].some((o) => o.value === s.format)) formatEl.value = s.format;
+	if (s?.format) setRadio("format", s.format);
 	if (s?.header === false) headerEl.checked = false;
-	if (s?.valid === false) document.querySelector<HTMLInputElement>('input[name="mode"][value="invalid"]')!.checked = true;
+	if (s?.valid === false) setRadio("mode", "invalid");
 }
 
 // ---------- API command ----------
-function updateApiCmd() {
+function apiCommand(): { text: string; url: string; out: string } {
+	const f = format();
 	const params = new URLSearchParams();
-	const fields = selectedFields();
-	params.set("fields", fields.join(","));
-	const format = formatEl.value as Format;
-	params.set("rows", String(Math.min(Number(rowsEl.value) || 10, isBinary(format) ? MAX_API_DOCUMENT_ROWS : MAX_API_ROWS)));
-	params.set("format", format);
-	if (!mode()) params.set("valid", "false");
+	params.set("fields", selectedFields().join(","));
+	params.set("rows", String(Math.min(Number(rowsEl.value) || 10, isBinary(f) ? MAX_API_DOCUMENT_ROWS : MAX_API_ROWS)));
+	params.set("format", f);
+	if (!isValidMode()) params.set("valid", "false");
 	if (seedEl.value.trim()) params.set("seed", seedEl.value.trim());
-	if ((format === "csv" || format === "xlsx") && !headerEl.checked) params.set("header", "false");
-	const qs = params.toString().replace(/%2C/g, ",");
-	const outFlag = isBinary(format) ? ` -o dlp-test-data.${EXTENSION[format]}` : "";
-	apiCmd.textContent = `curl "${location.origin}/api/generate?${qs}"${outFlag}`;
+	if ((f === "csv" || f === "xlsx") && !headerEl.checked) params.set("header", "false");
+	const url = `${location.origin}/api/generate?${params.toString().replace(/%2C/g, ",")}`;
+	const out = isBinary(f) ? `-o dlp-test-data.${EXTENSION[f]}` : "";
+	return { text: `curl "${url}"${out ? " " + out : ""}`, url, out };
 }
 
+function renderApiCmd() {
+	const { url, out } = apiCommand();
+	const span = (cls: string, text: string) => {
+		const s = document.createElement("span");
+		s.className = cls;
+		s.textContent = text;
+		return s;
+	};
+	const parts: (Node | string)[] = [span("tok-cmd", "curl"), " ", span("tok-url", `"${url}"`)];
+	if (out) parts.push(" ", span("tok-flag", out));
+	apiCmd.replaceChildren(...parts);
+}
+
+$("copy-api").addEventListener("click", async (e) => {
+	const btn = e.currentTarget as HTMLButtonElement;
+	try {
+		await navigator.clipboard.writeText(apiCommand().text);
+		btn.textContent = "Copied";
+	} catch {
+		btn.textContent = "Blocked";
+	}
+	setTimeout(() => (btn.textContent = "Copy"), 1500);
+});
+
+// ---------- change handling ----------
 function onChange() {
-	const format = formatEl.value as Format;
-	headerEl.disabled = format !== "csv" && format !== "xlsx";
-	rowsEl.max = String(maxRows(format));
-	rowsHint.textContent = `(max ${maxRows(format).toLocaleString()})`;
-	if (output && output.format !== format) {
+	const f = format();
+	const ids = selectedFields();
+	headerEl.disabled = f !== "csv" && f !== "xlsx";
+	rowsEl.max = String(maxRows(f));
+	rowsHint.textContent = `max ${maxRows(f).toLocaleString()}`;
+	fieldCount.textContent = `${ids.length} selected`;
+	modeHint.textContent = isValidMode()
+		? "Values pass their checksums. Your DLP rules should flag them."
+		: "Values look right but fail their checksums. Your DLP rules should ignore them.";
+	for (const chip of presetsEl.querySelectorAll<HTMLButtonElement>(".chip")) {
+		const p = PRESETS[chip.dataset.preset!].fields;
+		chip.classList.toggle("active", p.length === ids.length && p.every((id) => ids.includes(id)));
+	}
+	if (output && output.format !== f) {
 		output = null;
 		downloadBtn.disabled = copyBtn.disabled = true;
-		setStatus("Format changed: press Generate again.");
+		setStatus("Format changed. Press Generate again.");
 	}
-	updateApiCmd();
+	renderApiCmd();
 	save();
 }
 
-for (const el of [rowsEl, formatEl, seedEl, headerEl]) el.addEventListener("input", onChange);
+for (const el of [rowsEl, seedEl, headerEl]) el.addEventListener("input", onChange);
 groupsEl.addEventListener("change", onChange);
-document.querySelectorAll('input[name="mode"]').forEach((el) => el.addEventListener("change", onChange));
+document.querySelectorAll('input[name="mode"], input[name="format"]').forEach((el) => el.addEventListener("change", onChange));
 
 // ---------- generate ----------
-function setStatus(msg: string, error = false) {
+function setStatus(msg: string, kind: "" | "ok" | "error" = "") {
 	statusEl.textContent = msg;
-	statusEl.classList.toggle("error", error);
+	statusEl.className = `status ${kind}`;
 }
 
-function renderPreview(ds: Dataset) {
+function renderPreview(ds: Dataset, valid: boolean) {
 	const table = document.createElement("table");
-	const thead = table.createTHead().insertRow();
+	const headRow = table.createTHead().insertRow();
+	const corner = document.createElement("th");
+	corner.textContent = "#";
+	corner.className = "rownum";
+	headRow.append(corner);
 	for (const f of ds.fields) {
 		const th = document.createElement("th");
-		th.textContent = f.label;
+		const dot = document.createElement("span");
+		dot.className = "cat-dot";
+		dot.style.background = `var(--c-${catVar(f.category)})`;
+		th.append(dot, document.createTextNode(f.label));
 		th.title = f.id;
-		thead.append(th);
+		headRow.append(th);
 	}
 	const body = table.createTBody();
-	for (const rec of ds.records.slice(0, PREVIEW_ROWS)) {
+	ds.records.slice(0, PREVIEW_ROWS).forEach((rec, n) => {
 		const tr = body.insertRow();
-		rec.forEach((v) => {
+		const num = tr.insertCell();
+		num.className = "rownum";
+		num.textContent = String(n + 1);
+		rec.forEach((v, i) => {
 			const td = tr.insertCell();
-			td.textContent = v;
-			td.className = v.includes("\n") ? "mono multiline" : "mono";
+			if (v.includes("\n")) td.className = "multiline";
+			if (ds.fields[i].checksum) {
+				const mark = document.createElement("span");
+				mark.className = valid ? "hit" : "miss";
+				mark.textContent = v;
+				td.append(mark);
+			} else {
+				td.textContent = v;
+			}
 		});
-	}
+	});
 	previewEl.replaceChildren(table);
+	legendEl.hidden = !ds.fields.some((f) => f.checksum);
 	const shown = Math.min(PREVIEW_ROWS, ds.records.length);
-	previewMeta.textContent = `Showing ${shown} of ${ds.records.length.toLocaleString()} rows · seed ${ds.seed}`;
+	previewMeta.textContent = `${shown} of ${ds.records.length.toLocaleString()} rows · seed ${ds.seed}`;
 }
 
-const generateBtn = $<HTMLButtonElement>("generate");
-generateBtn.addEventListener("click", async () => {
-	const fields = selectedFields();
-	const rows = Number(rowsEl.value);
-	const format = formatEl.value as Format;
-	const max = maxRows(format);
-	if (!fields.length) return setStatus("Choose at least one field.", true);
-	if (!Number.isInteger(rows) || rows < 1 || rows > max) {
-		return setStatus(`Rows must be a whole number from 1 to ${max.toLocaleString()} for this format.`, true);
-	}
-	generateBtn.disabled = true;
-	setStatus("Generating…");
-	try {
-		const t0 = performance.now();
-		const ds = generate({ fields, rows, valid: mode(), seed: seedEl.value });
-		const data = await render(ds, format, headerEl.checked);
-		output = { data, format };
-		renderPreview(ds);
-		downloadBtn.disabled = false;
-		copyBtn.disabled = typeof data !== "string";
-		const size = typeof data === "string" ? new Blob([data]).size : data.length;
-		setStatus(`Generated ${rows.toLocaleString()} rows (${formatBytes(size)}) in ${Math.round(performance.now() - t0)} ms.`);
-	} catch (e) {
-		setStatus(`Couldn't generate: ${e instanceof Error ? e.message : e}`, true);
-	} finally {
-		generateBtn.disabled = false;
-	}
-});
+function catVar(c: Category): string {
+	return { Identity: "identity", Contact: "contact", "Government ID": "gov", Financial: "financial", Health: "health", Secrets: "secrets", Network: "network" }[c];
+}
 
 function formatBytes(n: number): string {
 	if (n < 1024) return `${n} B`;
 	if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
 	return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
+
+generateBtn.addEventListener("click", async () => {
+	const fields = selectedFields();
+	const rows = Number(rowsEl.value);
+	const f = format();
+	const max = maxRows(f);
+	if (!fields.length) return setStatus("Choose at least one field.", "error");
+	if (!Number.isInteger(rows) || rows < 1 || rows > max) {
+		return setStatus(`Rows must be a whole number from 1 to ${max.toLocaleString()} for ${f.toUpperCase()}.`, "error");
+	}
+	generateBtn.disabled = true;
+	setStatus("Generating…");
+	try {
+		const t0 = performance.now();
+		const valid = isValidMode();
+		const ds = generate({ fields, rows, valid, seed: seedEl.value });
+		const data = await render(ds, f, headerEl.checked);
+		output = { data, format: f };
+		renderPreview(ds, valid);
+		downloadBtn.disabled = false;
+		copyBtn.disabled = typeof data !== "string";
+		copyBtn.title = typeof data === "string" ? "" : "Binary formats can't be copied as text";
+		const size = typeof data === "string" ? new Blob([data]).size : data.length;
+		setStatus(`${rows.toLocaleString()} rows · ${formatBytes(size)} ${f.toUpperCase()} · ${Math.round(performance.now() - t0)} ms`, "ok");
+	} catch (e) {
+		setStatus(`Couldn't generate: ${e instanceof Error ? e.message : e}`, "error");
+	} finally {
+		generateBtn.disabled = false;
+	}
+});
 
 downloadBtn.addEventListener("click", () => {
 	if (!output) return;
@@ -227,9 +347,9 @@ copyBtn.addEventListener("click", async () => {
 	if (!output || typeof output.data !== "string") return;
 	try {
 		await navigator.clipboard.writeText(output.data);
-		setStatus("Copied to clipboard.");
+		setStatus("Copied to clipboard.", "ok");
 	} catch {
-		setStatus("Couldn't copy: clipboard access was blocked.", true);
+		setStatus("Couldn't copy: clipboard access was blocked.", "error");
 	}
 });
 

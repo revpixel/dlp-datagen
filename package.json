@@ -20,5 +20,9 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/revpixel/dlp-datagen.git"
+	},
+	"dependencies": {
+		"@fontsource-variable/jetbrains-mono": "^5.3.0",
+		"@fontsource-variable/space-grotesk": "^5.3.0"
 	}
 }
