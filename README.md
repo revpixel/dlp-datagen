@@ -1,6 +1,6 @@
 # DLP Test Data Generator
 
-**Live:** https://dlp-datagen.revpixel.workers.dev
+**Live:** https://dlp.cyberdynenetwork.com
 
 Synthetic PII, PCI, PHI and secrets for testing data loss prevention (DLP) rules: Microsoft Purview, Netskope, Zscaler, Symantec, Forcepoint, Google DLP and similar tools.
 
@@ -31,13 +31,13 @@ Fields in the same row agree with each other: the email matches the name, the ph
 
 ```bash
 # 10 PCI rows as CSV
-curl "https://dlp-datagen.revpixel.workers.dev/api/generate?preset=pci&rows=10&format=csv"
+curl "https://dlp.cyberdynenetwork.com/api/generate?preset=pci&rows=10&format=csv"
 
 # Specific fields, invalid near-misses, fixed seed
-curl "https://dlp-datagen.revpixel.workers.dev/api/generate?fields=full_name,ssn,cc_number&rows=100&valid=false&seed=run-42"
+curl "https://dlp.cyberdynenetwork.com/api/generate?fields=full_name,ssn,cc_number&rows=100&valid=false&seed=run-42"
 
 # List all fields and presets
-curl "https://dlp-datagen.revpixel.workers.dev/api/fields"
+curl "https://dlp.cyberdynenetwork.com/api/fields"
 ```
 
 | Parameter | Default | Notes |
@@ -54,7 +54,7 @@ curl "https://dlp-datagen.revpixel.workers.dev/api/fields"
 `xlsx` is one sheet with a bold, frozen header row. `txt`, `docx` and `pdf` write labelled records (`SSN: 123-45-6789`), since many DLP rules require a keyword near the match. PDFs contain real text (standard fonts, no images), so content inspection can read them. Document formats are always sent as attachments; save them with `curl -o`:
 
 ```bash
-curl "https://dlp-datagen.revpixel.workers.dev/api/generate?preset=phi&rows=500&format=xlsx" -o phi.xlsx
+curl "https://dlp.cyberdynenetwork.com/api/generate?preset=phi&rows=500&format=xlsx" -o phi.xlsx
 ```
 
 ## Development
