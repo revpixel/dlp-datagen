@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="dark" />
+		<title>DLP Data Generator</title>
+		<script type="module" src="./src/sidepanel.ts"></script>
+	</head>
+	<body>
+		<header class="top">
+			<img class="mark" src="/icons/icon-48.png" alt="" width="28" height="28" />
+			<div class="brand">
+				<h1>DLP Data Generator</h1>
+				<p>Synthetic test data, generated locally</p>
+			</div>
+			<a class="full-link" href="https://dlp.cyberdynenetwork.com" target="_blank" rel="noopener noreferrer"
+				>Full generator<span aria-hidden="true"> ↗</span><span class="sr-only"> (opens in a new tab)</span></a
+			>
+		</header>
+
+		<div class="tabs" role="tablist" aria-label="Views">
+			<button type="button" role="tab" id="tab-generate" aria-controls="view-generate" data-tab="generate">Generate</button>
+			<button type="button" role="tab" id="tab-quick" aria-controls="view-quick" data-tab="quick">Quick copy</button>
+			<button type="button" role="tab" id="tab-favorites" aria-controls="view-favorites" data-tab="favorites">Favorites</button>
+		</div>
+
+		<main>
+			<!-- ============ Generate ============ -->
+			<section class="view" role="tabpanel" id="view-generate" aria-labelledby="tab-generate" hidden>
+				<div class="card">
+					<label class="label" for="preset">Preset</label>
+					<select id="preset"></select>
+
+					<div class="fields-head">
+						<span class="label" id="fields-label">Fields</span>
+						<span class="count" id="field-count" aria-live="polite"></span>
+						<button type="button" class="link-btn" id="fields-clear">Clear</button>
+					</div>
+					<input
+						type="search"
+						id="field-search"
+						class="search"
+						placeholder="Filter by name, ID or category"
+						aria-label="Filter fields"
+						aria-controls="field-groups"
+						autocomplete="off"
+						spellcheck="false"
+					/>
+					<div id="field-groups" class="groups" role="group" aria-labelledby="fields-label"></div>
+					<p id="search-empty" class="hint" hidden>No fields match that filter.</p>
+				</div>
+
+				<div class="card">
+					<fieldset class="seg">
+						<legend class="label">Mode</legend>
+						<div class="seg-options">
+							<label><input type="radio" name="mode" value="valid" /> <span>Valid</span></label>
+							<label><input type="radio" name="mode" value="invalid" /> <span>Near-miss</span></label>
+						</div>
+					</fieldset>
+					<p id="mode-hint" class="hint"></p>
+
+					<div class="pair">
+						<div>
+							<label class="label" for="rows">Rows</label>
+							<input id="rows" type="text" inputmode="numeric" autocomplete="off" aria-describedby="rows-hint" />
+							<span class="hint" id="rows-hint"></span>
+						</div>
+						<div>
+							<label class="label" for="format">Format</label>
+							<select id="format"></select>
+						</div>
+					</div>
+
+					<label class="label" for="seed">Seed <span class="opt">optional</span></label>
+					<div class="input-btn">
+						<input id="seed" type="text" autocomplete="off" spellcheck="false" aria-describedby="seed-hint" />
+						<button type="button" class="icon-btn" id="seed-dice" aria-label="Fill in a random seed" title="Random seed">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5" /><circle cx="9" cy="9" r="1.2" /><circle cx="15" cy="15" r="1.2" /><circle cx="15" cy="9" r="1.2" /><circle cx="9" cy="15" r="1.2" /></svg>
+						</button>
+					</div>
+					<span class="hint" id="seed-hint">Same seed, fields, rows and mode give the same data.</span>
+
+					<label class="check" id="header-wrap"><input type="checkbox" id="header" /> Header row</label>
+				</div>
+
+				<button type="button" class="primary" id="generate">Generate</button>
+				<p class="status" id="gen-status" role="status"></p>
+
+				<section id="results" class="results" aria-labelledby="results-title" hidden>
+					<div class="results-head">
+						<h2 id="results-title">Output</h2>
+						<span class="meta" id="results-meta"></span>
+					</div>
+					<div class="actions">
+						<button type="button" class="btn" id="copy-all">Copy all</button>
+						<button type="button" class="btn" id="download">Download</button>
+					</div>
+					<p class="hint legend" id="legend" hidden></p>
+					<ol class="records" id="records"></ol>
+					<p class="hint" id="records-more" hidden></p>
+					<details class="raw" id="raw-wrap">
+						<summary>Formatted output</summary>
+						<pre id="raw" tabindex="0" aria-label="Formatted output"></pre>
+					</details>
+				</section>
+			</section>
+
+			<!-- ============ Quick copy ============ -->
+			<section class="view" role="tabpanel" id="view-quick" aria-labelledby="tab-quick" hidden>
+				<div class="card">
+					<label class="label" for="quick-field">Field</label>
+					<select id="quick-field"></select>
+					<p class="hint" id="quick-desc"></p>
+
+					<fieldset class="seg">
+						<legend class="label">Mode</legend>
+						<div class="seg-options">
+							<label><input type="radio" name="quick-mode" value="valid" /> <span>Valid</span></label>
+							<label><input type="radio" name="quick-mode" value="invalid" /> <span>Near-miss</span></label>
+						</div>
+					</fieldset>
+					<p class="hint" id="quick-mode-note"></p>
+
+					<div class="btn-row">
+						<button type="button" class="primary" id="quick-generate">Generate value</button>
+						<button type="button" class="btn pin" id="quick-pin" aria-pressed="false"></button>
+					</div>
+				</div>
+
+				<div class="card value-card" id="quick-result" hidden>
+					<p class="value-meta" id="quick-meta"></p>
+					<output class="value" id="quick-value" for="quick-generate"></output>
+					<button type="button" class="btn" id="quick-copy">Copy value</button>
+				</div>
+				<p class="status" id="quick-status" role="status"></p>
+			</section>
+
+			<!-- ============ Favorites ============ -->
+			<section class="view" role="tabpanel" id="view-favorites" aria-labelledby="tab-favorites" hidden>
+				<div class="card">
+					<div class="fav-head">
+						<h2 id="fav-title">Pinned fields</h2>
+						<fieldset class="seg compact">
+							<legend class="sr-only">Mode for favorites</legend>
+							<div class="seg-options">
+								<label><input type="radio" name="fav-mode" value="valid" /> <span>Valid</span></label>
+								<label><input type="radio" name="fav-mode" value="invalid" /> <span>Near-miss</span></label>
+							</div>
+						</fieldset>
+					</div>
+					<ul class="fav-list" id="fav-list" aria-labelledby="fav-title"></ul>
+					<div class="empty" id="fav-empty" hidden>
+						<p>No favorites yet. Pin fields here or from Quick copy for one-click values.</p>
+						<button type="button" class="btn" id="fav-starter">Add a starter set</button>
+						<p class="hint" id="fav-starter-list"></p>
+					</div>
+				</div>
+				<div class="card">
+					<label class="label" for="fav-add-field">Add a field</label>
+					<div class="input-btn">
+						<select id="fav-add-field"></select>
+						<button type="button" class="btn" id="fav-add">Pin</button>
+					</div>
+				</div>
+				<p class="status" id="fav-status" role="status"></p>
+			</section>
+		</main>
+
+		<footer class="foot">
+			<p class="privacy">
+				Values are generated locally in this panel. The extension doesn't read or change the pages you visit, and it never sends or saves
+				generated values.
+			</p>
+			<nav class="foot-links" aria-label="Project links">
+				<a href="https://dlp.cyberdynenetwork.com" target="_blank" rel="noopener noreferrer">Full generator</a>
+				<a href="https://github.com/revpixel/dlp-datagen/blob/main/docs/fields.md" target="_blank" rel="noopener noreferrer">Field reference</a>
+				<a href="https://github.com/revpixel/dlp-datagen/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">Report an issue</a>
+				<a href="https://github.com/revpixel/dlp-datagen/issues/new?template=feature_request.yml" target="_blank" rel="noopener noreferrer"
+					>Request a feature</a
+				>
+			</nav>
+			<div class="foot-row">
+				<button type="button" class="link-btn" id="reset-prefs">Reset saved preferences</button>
+				<span class="version" id="version"></span>
+			</div>
+			<p class="status" id="foot-status" role="status"></p>
+		</footer>
+	</body>
+</html>

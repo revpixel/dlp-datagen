@@ -1,0 +1,15 @@
+{
+	"name": "dlp-datagen-extension",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "DLP Data Generator for Chrome: synthetic test data for DLP and security-control validation, in the side panel.",
+	"license": "MIT",
+	"scripts": {
+		"build": "vite build --config vite.config.ts",
+		"test": "node --test \"test/**/*.test.ts\"",
+		"package": "vite build --config vite.config.ts && node scripts/package.ts && node --test test/build.test.ts",
+		"icons": "node scripts/icons.ts",
+		"typecheck": "tsc -p tsconfig.json"
+	}
+}

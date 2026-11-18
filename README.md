@@ -109,26 +109,39 @@ Both use the same generator code (`src/lib/`), so the same fields, seed and mode
 | Max rows (DOCX, PDF) | 10,000 | 2,000 |
 | Extras | Live preview, copy to clipboard, copy-as-curl for the current settings, remembers your last settings | Scriptable; seed in a response header |
 
+## Chrome extension
+
+[`extension/`](extension/README.md) packages the same generator as a Chrome side-panel extension (Manifest V3) that stays open while you test in other tabs. It has three views:
+
+- **Generate:** up to 500 rows, with per-value, per-row and full-output copy.
+- **Quick copy:** one value for one field.
+- **Favorites:** pinned fields for one-click values.
+
+Generation runs locally and offline. The extension asks only for the `sidePanel` and `storage` permissions, and it never reads the pages you visit. It isn't on the Chrome Web Store yet: run `npm run ext:build` and load `extension/dist` unpacked. The [extension README](extension/README.md) covers installation, packaging, permissions and limits, and [PRIVACY.md](extension/PRIVACY.md) has the privacy statement.
+
 ## Development
 
 Requires Node.js 22.18 or later. Uses the Cloudflare [`cf` CLI](https://developers.cloudflare.com/cf/) and Vite.
 
 ```bash
 npm install
-npm run dev        # local server with the UI and API
-npm test           # generator, checksum, document and API tests
-npm run typecheck  # Worker and web UI
-npm run build      # production build
-npm run deploy     # deploy to Cloudflare Workers
+npm run dev          # local server with the UI and API
+npm test             # generator, checksum, document, API and extension unit tests
+npm run typecheck    # Worker, web UI and extension
+npm run build        # production build (website and API)
+npm run deploy       # deploy to Cloudflare Workers
+npm run ext:test     # build the Chrome extension and run its tests
+npm run ext:package  # extension/release/*.zip for the Chrome Web Store
 ```
 
-CI (`.github/workflows/ci.yml`) runs the tests and type checks on every push to `main` and on every pull request.
+CI (`.github/workflows/ci.yml`) runs the tests and type checks on every push to `main` and on every pull request. It also builds the extension, tests it end to end in Chrome, and uploads the store ZIP as an artifact.
 
 ### Layout
 
 | Path | Contents |
 |---|---|
-| `src/lib/fields.ts` | Field registry, per-row consistency, presets |
+| `src/lib/fields.ts` | Field registry, per-row consistency, presets, registry ordering |
+| `src/lib/categories.ts` | Category icons and colour tokens shared by the web UI and extension |
 | `src/lib/checksums.ts` | Luhn, ABA, IBAN mod-97, NPI and DEA algorithms |
 | `src/lib/secrets.ts` | Marvin32, Base62 and Microsoft identifiable-key and CASK builders, ported from microsoft/security-utilities |
 | `src/lib/data.ts` | Seed lists: names, places, ICD-10 codes, medications, insurers |
@@ -137,6 +150,7 @@ CI (`.github/workflows/ci.yml`) runs the tests and type checks on every push to 
 | `src/lib/documents.ts`, `src/lib/zip.ts` | Dependency-free XLSX, DOCX and PDF writers |
 | `src/api.ts` | API handler; `src/index.ts` is the Worker entry |
 | `src/web/`, `index.html` | Web UI |
+| `extension/` | Chrome extension (separate package and build; imports `src/lib`) |
 | `test/` | Tests (Node's built-in test runner) |
 | `cloudflare.config.ts` | Worker name, custom domain, static asset routing |
 
@@ -146,7 +160,7 @@ CI (`.github/workflows/ci.yml`) runs the tests and type checks on every push to 
 2. If it has a checksum, add the algorithm to `src/lib/checksums.ts`, produce a wrong check value when `row.valid` is false, and add the field to the valid/invalid tests in `test/generators.test.ts`.
 3. Document it in [docs/fields.md](docs/fields.md) and the table above.
 
-A new field only changes output for requests that include it; existing seeds keep producing the same data.
+A new field only changes output for requests that include it; existing seeds keep producing the same data. The web UI, API and Chrome extension all read the registry, so no other list needs updating.
 
 ## Responsible use
 

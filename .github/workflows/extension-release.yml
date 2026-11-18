@@ -1,0 +1,39 @@
+# Builds, tests and packages the Chrome extension, then attaches the store ZIP
+# to a GitHub release. Triggered by pushing a tag such as extension-v0.1.0
+# (it must match extension/package.json). It does not publish to the Chrome
+# Web Store; upload the ZIP there by hand.
+name: Extension release
+on:
+  push:
+    tags: ["extension-v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run ext:test
+      - run: npm run ext:package
+      - name: Check tag matches the extension version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(node -p "require('./extension/package.json').version")
+          test "${GITHUB_REF_NAME}" = "extension-v${version}" || { echo "Tag ${GITHUB_REF_NAME} does not match extension version ${version}"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension
+          path: extension/release/*.zip
+          if-no-files-found: error
+      - name: Attach the ZIP to a GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" extension/release/*.zip --title "Chrome extension ${GITHUB_REF_NAME#extension-}" --notes "Unpacked-extension ZIP for Chrome (Manifest V3). See extension/README.md to install or submit it."

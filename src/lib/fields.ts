@@ -576,6 +576,17 @@ export const FIELDS: readonly Field[] = [
 
 export const FIELD_MAP: ReadonlyMap<string, Field> = new Map(FIELDS.map((f) => [f.id, f]));
 
+const REGISTRY_INDEX: ReadonlyMap<string, number> = new Map(FIELDS.map((f, i) => [f.id, i]));
+
+/**
+ * Known field ids in registry order, with unknown ids and duplicates dropped.
+ * Generators take fields in the order given, so every UI sorts selections
+ * this way to keep output independent of on-screen layout.
+ */
+export function inRegistryOrder(ids: Iterable<string>): string[] {
+	return [...new Set(ids)].filter((id) => REGISTRY_INDEX.has(id)).sort((a, b) => REGISTRY_INDEX.get(a)! - REGISTRY_INDEX.get(b)!);
+}
+
 export const PRESETS: Readonly<Record<string, { label: string; fields: readonly string[] }>> = {
 	pii: { label: "PII basics", fields: ["full_name", "dob", "email", "phone", "street", "city", "state", "zip", "ssn"] },
 	pci: { label: "PCI (cards)", fields: ["full_name", "cc_number", "cc_brand", "cc_expiry", "cc_cvv", "zip"] },

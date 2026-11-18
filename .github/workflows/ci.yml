@@ -15,3 +15,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
+      # Chrome extension: build, audit the package, and run the end-to-end
+      # tests against the unpacked build in the runner's Chrome.
+      - run: npm run ext:test
+      - run: npm run ext:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension
+          path: extension/release/*.zip
+          if-no-files-found: error

@@ -6,8 +6,12 @@
 		"dev": "cf dev",
 		"build": "cf build",
 		"deploy": "cf deploy",
-		"test": "node --test \"test/**/*.test.ts\"",
-		"typecheck": "cf workers types && tsc && tsc -p tsconfig.web.json"
+		"test": "node --test \"test/**/*.test.ts\" \"extension/test/**/*.test.ts\"",
+		"typecheck": "cf workers types && tsc && tsc -p tsconfig.web.json && tsc -p extension/tsconfig.json",
+		"ext:build": "npm --prefix extension run build",
+		"ext:test": "npm --prefix extension run build && npm --prefix extension test",
+		"ext:package": "npm --prefix extension run package",
+		"ext:icons": "npm --prefix extension run icons"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^2.0.0-rc.1",
