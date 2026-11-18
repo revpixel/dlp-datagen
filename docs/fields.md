@@ -56,9 +56,18 @@ See also: [API reference](api.md) · [output formats](formats.md)
 | `stripe_key` | Stripe secret key | Secrets | | `sk_live_kE3t…` |
 | `private_key` | Private key (PEM) | Secrets | | `-----BEGIN RSA PRIVATE KEY-----` … (multi-line) |
 | `password` | Password | Secrets | | `W%bCi9fd#HGu5x` |
-| `ipv4` | IPv4 address | Network | | `55.127.90.220` |
-| `mac` | MAC address | Network | | `0D:8E:85:A1:A1:C4` |
-| `username` | Username | Network | | `pwhite89` |
+| `entra_client_secret` | Entra client secret | Secrets | ✓ | `QgX8Q~5A5i…` |
+| `azure_devops_pat` | Azure DevOps PAT | Secrets | ✓ | `oYmGE5n2…AZDO3lJY` |
+| `azure_storage_key` | Azure storage account key | Secrets | ✓ | `Nb+oHxqV…+AStGN9Jww==` |
+| `azure_storage_connection_string` | Azure Storage connection string | Secrets | ✓ | `DefaultEndpointsProtocol=https;AccountName=…` |
+| `azure_service_bus_connection_string` | Azure Service Bus connection string | Secrets | ✓ | `Endpoint=sb://example-telemetry-4392…` |
+| `azure_sas` | Azure Storage SAS URL | Secrets | ✓ | `https://examplefiles8892.blob.core.windows.net/…` |
+| `gcp_api_key` | Google Cloud API key | Secrets | | `AIzaSy4xGWK1…` |
+| `jwt` | JSON Web Token (JWT) | Secrets | ✓ | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ…` |
+| `bearer_token` | Bearer token (HTTP header) | Secrets | | `Authorization: Bearer khn1NlVf…` |
+| `ipv4` | IPv4 address | Network | | `32.100.77.26` |
+| `mac` | MAC address | Network | | `8C:02:73:36:A4:EC` |
+| `username` | Username | Network | | `pwhite54` |
 
 The label is what appears in XLSX headers and next to each value in TXT, DOCX and PDF output. CSV headers and JSON keys use the id.
 
@@ -391,9 +400,11 @@ Valid `4X92-UN6-WM61` · Invalid `0YJ7-JX8-MR16`
 
 ## Secrets
 
-These match the patterns DLP and secret scanners look for. None is a working credential. Real GitHub tokens end with a checksum, so scanners that check it, or that test credentials against the provider, won't treat these as live. Secrets don't have a valid/invalid difference.
+These match the patterns DLP and secret scanners look for. None is a working credential: every value is random, issued by no provider, and tied to no real account, tenant, namespace or project. The generator never contacts a provider. Real GitHub tokens end with a checksum, so scanners that check it, or that test credentials against the provider, won't treat these as live.
 
-Some examples below are shortened (`…`). The full values match secret-scanning patterns closely enough that GitHub push protection blocks them from this repository, which is the point of the generator but not of its documentation. Generate a full value with, for example, `/api/generate?preset=secrets&rows=1`.
+The first seven fields have no valid/invalid difference. The Secrets v2 fields from `entra_client_secret` onward have one wherever the provider's format has a real rule to break: a length and marker, a checksum, a signature length or a token structure.
+
+Many examples below are shortened (`…`). The full values match secret-scanning patterns closely enough that GitHub push protection blocks them from this repository, which is the point of the generator but not of its documentation. Generated output is always complete; get full values with `/api/generate?preset=cloud_secrets&rows=1`.
 
 ### `aws_access_key_id` — AWS access key ID
 
@@ -449,6 +460,178 @@ This is the only multi-line field. See [output formats](formats.md) for how each
 
 Example: `W%bCi9fd#HGu5x`
 
+### `entra_client_secret` — Microsoft Entra client secret ✓
+
+40 characters from letters, digits and `- . _ ~` (RFC 3986 unreserved characters), with the fixed marker `8Q~` at positions 4 to 6. This is the current format Entra ID issues for app registration secrets; Microsoft's open-source scanner ([microsoft/security-utilities](https://github.com/microsoft/security-utilities), rule SEC101/156) requires exactly 40 characters when the marker is `8Q~`.
+
+| Mode | Rule |
+|---|---|
+| Valid | 40 characters, `8Q~` at positions 4 to 6 |
+| Invalid | Same alphabet and marker, but 39 characters, so a length-checking detector rejects it |
+
+Valid `QgX8Q~5A5i…` (40 characters) · Invalid `QgX8Q~5A5i…` (39 characters)
+
+**Context:** the marker makes the raw value distinctive, but Microsoft Purview's Entra client secret type also looks for nearby words such as `secret`, `password` or `key`. The label `Entra client secret` provides that in TXT, DOCX and PDF output.
+
+**Why it can't work:** the 37 non-marker characters are random. Entra doesn't validate secrets offline, and no app registration holds these values.
+
+### `azure_devops_pat` — Azure DevOps personal access token ✓
+
+84 characters in the Common Annotated Security Key (CASK) format that Azure DevOps has issued since July 2024:
+
+| Positions | Content |
+|---|---|
+| 1–52 | Random letters and digits |
+| 53–58 | `JQQJ99` (CASK signature) |
+| 59 | Allocation year: `A` = 2024, `B` = 2025, `C` = 2026 |
+| 60 | Allocation month: `A` to `L` |
+| 61–72 | Random letters and digits (platform data) |
+| 73–76 | `AAAA` (provider data) |
+| 77–80 | `AZDO` (Azure DevOps signature) |
+| 81–84 | Checksum |
+
+The checksum is a Marvin32 hash of the first 80 characters (decoded from base64) with the `Default0` seed, written in base62. Generation follows `IdentifiableSecrets.GenerateCommonAnnotatedTestKey` in microsoft/security-utilities, and the check follows `TryValidateCommonAnnotatedKey`.
+
+| Mode | Rule |
+|---|---|
+| Valid | Checksum matches |
+| Invalid | Every fixed part is still in place; the last checksum character is wrong |
+
+Valid `oYmGE5n2…JQQJ99CLp7bkJdjq28tYAAAAAZDO3lJY` · Invalid `woYmGE5n…JQQJ99CJmp7bkJdjq28tAAAAAZDO1VfW`
+
+**Context:** `AZDO` at positions 77 to 80 makes it detectable alone. Purview's Azure DevOps PAT type marks itself as checksum-validated and lists keywords such as `pat`, `token` and `ado`; the label `Azure DevOps PAT` supplies `PAT`. Microsoft doesn't publish how Purview validates the checksum. Pattern-only detectors, including the security-utilities rule SEC101/201, will match near-misses too.
+
+The older 52-character base32 PAT format still works at Azure DevOps but isn't generated.
+
+**Why it can't work:** the 64 random characters were never issued, so no organization recognizes the token. A valid checksum only means the format is consistent.
+
+### `azure_storage_key` — Azure Storage account key ✓
+
+88 base64 characters (64 bytes) in Microsoft's *identifiable key* format: 76 random characters, the signature `+ASt`, then a 4-byte Marvin32 checksum (seed `Default0`) ending in `==`. Generation follows `IdentifiableSecrets.GenerateBase64KeyHelper`; security-utilities rule SEC101/152 detects it.
+
+| Mode | Rule |
+|---|---|
+| Valid | Marvin32 checksum of the first 60 bytes matches the last 4 |
+| Invalid | Same length, alphabet and `+ASt` signature; one checksum byte is changed |
+
+Valid `Nb+oHxqV…+AStGN9Jww==` · Invalid `Nb+oHxqV…+AStKN9Jww==`
+
+**Context:** an identifiable key is detectable alone. Older storage keys have no signature, so detectors for those need context; Purview's storage key types look for `AccountKey` or `SharedAccessKey` nearby. A bare key in a CSV column has neither, so use `azure_storage_connection_string`, or TXT, DOCX or PDF output where the label `Azure storage account key` sits next to the value.
+
+**Why it can't work:** the key bytes are random and tied to no storage account; the checksum only proves the format.
+
+### `azure_storage_connection_string` — Azure Storage connection string ✓
+
+The standard storage account connection string:
+
+```
+DefaultEndpointsProtocol=https;AccountName=<account>;AccountKey=<88-character key>;EndpointSuffix=core.windows.net
+```
+
+The account name is `example` + a word + 4 digits (for example `examplefiles8892`), 3 to 24 lowercase letters and digits as Azure requires. The key is the row's `azure_storage_key`, so the two fields always match when both are selected.
+
+| Mode | Rule |
+|---|---|
+| Valid | The `AccountKey` passes its Marvin32 checksum |
+| Invalid | Same string with a near-miss key (checksum fails) |
+
+Example: `DefaultEndpointsProtocol=https;AccountName=examplefiles8892;AccountKey=Nb+oHxqV…+AStGN9Jww==;EndpointSuffix=core.windows.net`
+
+**Context:** `AccountName=` and `AccountKey=` are the context Purview and security-utilities (SEC101/106) look for, so this is the most reliably detected storage field in CSV and JSON.
+
+**Why it can't work:** the account names are invented and the key is random. An `example…` account could happen to exist, but the key wouldn't be one of its keys.
+
+### `azure_service_bus_connection_string` — Azure Service Bus connection string ✓
+
+```
+Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=<44-character key>
+```
+
+The namespace is `example-` + a word + `-` + 4 digits. The key is a 32-byte identifiable key: 33 random characters, the Service Bus signature `+ASb`, and a Marvin32 checksum with the `Manage00` seed, the seed Microsoft uses for manage-level keys such as `RootManageSharedAccessKey` (rule SEC101/171). Event Hubs uses the same connection string format, so this field also covers Event Hubs detection rules that match `servicebus.windows.net`.
+
+| Mode | Rule |
+|---|---|
+| Valid | `SharedAccessKey` passes its Marvin32 checksum |
+| Invalid | Same string with one checksum byte changed |
+
+Example: `Endpoint=sb://example-telemetry-4392.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=iCcwQlKS…+ASbKtIY1g=`
+
+**Why it can't work:** invented namespaces and a random key.
+
+### `azure_sas` — Azure Storage shared access signature URL ✓
+
+A full blob URL with a service SAS in its query string, in the parameter order the Azure portal uses:
+
+```
+https://<account>.blob.core.windows.net/<container>/<blob>?sp=<permissions>&st=<start>&se=<expiry>&spr=https&sv=2022-11-02&sr=b&sig=<signature>
+```
+
+- `sp` is `r`, `rw`, `rcw` or `racwd`, in Azure's required order.
+- `st` is a time in 2025 and `se` is 1, 8, 24 or 168 hours later. They come from a fixed window, not the current date, so a seed always gives the same URL; every generated SAS has already expired.
+- `sv=2022-11-02` is a storage service version Azure documents for SAS tokens.
+- `sig` is a base64 HMAC-SHA256 signature: 32 random bytes, with `+`, `/` and `=` percent-encoded as `%2B`, `%2F` and `%3D`.
+- The account name is the row's storage account, shared with `azure_storage_connection_string`.
+
+A full URL was chosen over a bare token because detectors usually key on `sig=` together with the other SAS parameters or the `blob.core.windows.net` host, and the URL is how SAS values usually leak (in logs, scripts and chat). It's still one column in tables.
+
+| Mode | Rule |
+|---|---|
+| Valid | `sig` decodes to 32 bytes (44 base64 characters, ending `%3D`), the length of an HMAC-SHA256 |
+| Invalid | Same URL, but `sig` decodes to 24 bytes (32 characters, no padding). Rules that require a 43+ character signature, such as security-utilities SEC101/060, skip it |
+
+Valid: `https://examplefiles8892.blob.core.windows.net/invoices/customers.json?sp=rw&st=2025-12-15T03:11:43Z&se=2025-12-16T03:11:43Z&spr=https&sv=2022-11-02&sr=b&sig=0JskvZKx…%3D`
+
+Invalid: `https://examplereports8927.blob.core.windows.net/invoices/db/backup-01.bak?sp=racwd&st=2025-10-23T09:40:40Z&se=2025-10-23T17:40:40Z&spr=https&sv=2022-11-02&sr=b&sig=JL2SsUjBLxgoujJkrKONCy8GgnLqL1Do`
+
+**Why it can't work:** the signature is random rather than computed from a real account key, the account is invented, and the expiry has passed.
+
+### `gcp_api_key` — Google Cloud API key
+
+`AIza` followed by 35 characters from letters, digits, `-` and `_`, 39 characters in all, as in Google's documentation and Purview's Google API key type. Generated keys start `AIzaSy`, like the example in Google's API key docs. Google publishes no checksum, so both modes generate the same way.
+
+Example: `AIzaSy4xGWK1…`
+
+**Context:** the `AIza` prefix and fixed length make it detectable alone.
+
+**Why it can't work:** the 33 characters after `AIzaSy` are random and belong to no project.
+
+### `jwt` — JSON Web Token ✓
+
+A compact JWS: three base64url segments joined by dots.
+
+- Header: always `{"alg":"HS256","typ":"JWT"}`, so every token starts `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.`
+- Payload: synthetic claims, for example:
+
+  ```json
+  {"iss":"https://auth.example.com","sub":"user-403181","aud":"api.example.org","iat":1737678565,"exp":1737682165,"jti":"4d6685c5bccb466f"}
+  ```
+
+  The issuer and audience use reserved example domains, `sub` is a random user number, and there's no personal data. `iat` is a time in 2025 from a fixed window (not the current time), and `exp` is one hour later, so every token is reproducible and already expired.
+- Signature: 32 random bytes in base64url (43 characters).
+
+| Mode | Rule |
+|---|---|
+| Valid | Three segments; the header and payload decode to JSON objects |
+| Invalid | The signature segment is missing (`header.payload`), so it isn't a valid JWS; both remaining segments still decode |
+
+Valid `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi….E81hEf1S…` · Invalid `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi…` (no third segment)
+
+"Valid" means well-formed, not trusted. The signature is random, so it doesn't verify against any key.
+
+**Context:** the three-segment `eyJ… . eyJ… . …` shape is distinctive alone.
+
+### `bearer_token` — HTTP bearer token header
+
+A complete header line, `Authorization: Bearer <token>`. The token is opaque, 32 to 48 characters long, starts with a letter or digit, and then uses letters, digits and `- . _ ~` (a subset of the RFC 6750 `b64token` syntax). It's deliberately not a JWT; use `jwt` for that.
+
+The value includes `Authorization: Bearer` because generic bearer rules, such as security-utilities SEC101/061, match the header, not a bare token. A random string alone isn't recognizable as a credential.
+
+Example: `Authorization: Bearer khn1NlVf…`
+
+There's no structural rule to break, so both modes generate the same way.
+
+**Why it can't work:** the token is random and issued by no server.
+
 ---
 
 ## Network
@@ -457,19 +640,19 @@ Example: `W%bCi9fd#HGu5x`
 
 Dotted quad: first octet 1 to 223, middle octets 0 to 255, last octet 1 to 254. Addresses aren't limited to private or documentation ranges, so they may be real public addresses (or private ones such as `10.x.x.x`).
 
-Example: `55.127.90.220`
+Example: `32.100.77.26`
 
 ### `mac` — MAC address
 
 Six pairs of uppercase hex digits separated by colons. Random, so the vendor prefix isn't a real one.
 
-Example: `0D:8E:85:A1:A1:C4`
+Example: `8C:02:73:36:A4:EC`
 
 ### `username` — Username
 
 Lowercase: the first letter of the row's first name, the last name and a number from 1 to 99.
 
-Example: `pwhite89` (Patricia White)
+Example: `pwhite54` (Patricia White)
 
 ---
 
@@ -483,8 +666,11 @@ Example: `pwhite89` (Patricia White)
 | `banking` | Banking | `full_name`, `aba_routing`, `bank_account`, `iban`, `swift_bic` |
 | `gov` | Government IDs | `full_name`, `ssn`, `itin`, `drivers_license`, `passport_us`, `uk_nino`, `ca_sin` |
 | `secrets` | Secrets & keys | `username`, `password`, `aws_access_key_id`, `aws_secret_key`, `github_pat`, `slack_token`, `stripe_key` |
+| `cloud_secrets` | Cloud secrets & tokens | `aws_access_key_id`, `aws_secret_key`, `github_pat`, `entra_client_secret`, `azure_devops_pat`, `azure_storage_key`, `azure_storage_connection_string`, `azure_service_bus_connection_string`, `azure_sas`, `gcp_api_key`, `jwt`, `bearer_token` |
 
 `pii` is the default when neither `fields` nor `preset` is given.
+
+`secrets` is unchanged from before Secrets v2, so existing seeds keep producing the same data. `cloud_secrets` covers cloud and token credentials: every Secrets v2 field plus the AWS and GitHub fields. A `cloud_secrets` row is about 1 KB of text and the connection strings and SAS URL are long, so expect wide columns in CSV and XLSX; TXT, DOCX and PDF put each value on its own labelled line.
 
 ## Consistency within a row
 
@@ -496,6 +682,7 @@ Some fields share one underlying value per row, so they always agree:
 | Place (city) | `city`, `state`, `zip` prefix, `phone` area code, `drivers_license` format |
 | Card | `cc_number`, `cc_brand`, `cc_cvv` length |
 | Diagnosis | `icd10`, `diagnosis` |
+| Azure Storage account | `azure_storage_key`, the account and key in `azure_storage_connection_string`, the account in `azure_sas` |
 
 Everything else is independent: `gender` doesn't follow the name, `medication` doesn't follow the diagnosis, and rows don't relate to each other.
 
@@ -524,3 +711,5 @@ Names and places are combined at random, so a generated person is unlikely to ma
 - **Instance counts:** policies often trigger only above a number of matches (for example, 10 or more card numbers). Set `rows` above and below the threshold to test both sides.
 - **File types:** generate the same seed in several formats to check that each file type is inspected; the values are identical across formats.
 - **Regression tests:** fix the seed in automated tests, so a change in detection points to the rule, not the data.
+- **Secret scanning:** run `cloud_secrets` in valid mode and every provider-aware scanner rule should fire. In near-miss mode, rules that check a checksum, length or signature (Azure DevOps, Azure Storage, Service Bus, Entra, SAS, JWT) should stay quiet, while the AWS, GitHub, Google and bearer values are generated the same way in both modes. Test push protection in a throwaway repository, never a real one.
+- **Context-dependent secrets:** `aws_secret_key` and `azure_storage_key` look like long random strings. Test them bare (CSV) and labelled (TXT, DOCX, PDF) to see whether your rules need context; `azure_storage_connection_string` carries `AccountKey=` context in every format.

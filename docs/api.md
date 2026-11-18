@@ -83,6 +83,7 @@ A comma-separated list of field ids from the [field reference](fields.md) or [`/
 | `banking` | Banking | full_name, aba_routing, bank_account, iban, swift_bic |
 | `gov` | Government IDs | full_name, ssn, itin, drivers_license, passport_us, uk_nino, ca_sin |
 | `secrets` | Secrets & keys | username, password, aws_access_key_id, aws_secret_key, github_pat, slack_token, stripe_key |
+| `cloud_secrets` | Cloud secrets & tokens | aws_access_key_id, aws_secret_key, github_pat, entra_client_secret, azure_devops_pat, azure_storage_key, azure_storage_connection_string, azure_service_bus_connection_string, azure_sas, gcp_api_key, jwt, bearer_token |
 
 An unknown preset is a `400`, unless `fields` is also set.
 
@@ -110,7 +111,7 @@ For more rows than the cap, make several requests with different seeds (see [Lar
 
 `false`, `0` or `no` (any case) turns on invalid mode. Any other value, including an empty one, leaves it on valid.
 
-In invalid mode, every field marked ✓ in the [field reference](fields.md) fails its checksum or structure rule while keeping the right shape. Fields without a rule are generated the same way in both modes.
+In invalid mode, every field marked ✓ in the [field reference](fields.md) fails its checksum or structure rule while keeping the right shape. For the Secrets v2 fields that means, for example, a bad Marvin32 checksum on Azure keys, a 39-character Entra secret, a 24-byte SAS signature or a JWT without its signature segment. Fields without a rule are generated the same way in both modes.
 
 #### `seed`
 
@@ -177,7 +178,7 @@ curl "https://dlp.cyberdynenetwork.com/api/fields"
 }
 ```
 
-(Shortened: the real response lists all 45 fields and all 6 presets.)
+(Shortened: the real response lists all 54 fields and all 7 presets.)
 
 | Key | Type | Description |
 |---|---|---|
@@ -230,7 +231,7 @@ Errors are JSON with a single `error` message:
 |---|---|---|
 | 400 | `Unknown field(s): <ids>` | One or more ids in `fields` don't exist |
 | 400 | `Choose at least one field.` | `fields` has no ids after trimming, e.g. `fields=,,` |
-| 400 | `Unknown preset: <name>` | `preset` isn't one of the six presets (and `fields` isn't set) |
+| 400 | `Unknown preset: <name>` | `preset` isn't one of the seven presets (and `fields` isn't set) |
 | 400 | `rows must be an integer from 1 to 10000` | `rows` is empty, not a whole number, below 1 or above 10,000 |
 | 400 | `rows must be at most 2000 for <format>` | More than 2,000 rows for `xlsx`, `docx` or `pdf` |
 | 400 | `format must be one of csv, json, ndjson, txt, xlsx, docx, pdf` | Unknown or wrongly cased `format` |
@@ -287,6 +288,10 @@ curl -s -D - -o /dev/null "https://dlp.cyberdynenetwork.com/api/generate?preset=
 
 # Stream JSON Lines into jq
 curl -s "https://dlp.cyberdynenetwork.com/api/generate?preset=secrets&rows=5&format=ndjson" | jq -c '{username, github_pat}'
+
+# Cloud credentials as labelled text, and their near-misses
+curl "https://dlp.cyberdynenetwork.com/api/generate?preset=cloud_secrets&rows=25&format=txt" -o cloud-secrets.txt
+curl "https://dlp.cyberdynenetwork.com/api/generate?preset=cloud_secrets&rows=25&format=txt&valid=false" -o cloud-near-misses.txt
 ```
 
 ### PowerShell

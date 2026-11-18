@@ -9,7 +9,7 @@ Values that have check digits or structure rules (card numbers, SSNs, IBANs, ABA
 - **Web UI:** pick fields, row count and format, then preview, download or copy. Data is generated in your browser; nothing is sent to a server.
 - **API:** the same generator on Cloudflare Workers, for scripts, pipelines and automated tests. No key or sign-up.
 - **7 formats:** CSV, JSON, JSON Lines, TXT, Excel (.xlsx), Word (.docx) and PDF. DLP engines often inspect each file type differently, so test the ones your policies cover.
-- **45 fields, 6 presets** across identity, contact, government ID, financial, health, secrets and network data.
+- **54 fields, 7 presets** across identity, contact, government ID, financial, health, secrets and network data, including Azure, Entra, Google, JWT and bearer credentials whose checksums and formats match Microsoft's own secret scanner.
 - **Repeatable:** pass a seed to get identical output every time, down to the bytes of the XLSX, DOCX and PDF files.
 
 ## Documentation
@@ -58,10 +58,10 @@ Jordan Kowalski,5308381957542378,Mastercard,07/28,148,14224
 | Government ID | `ssn` ✓, `itin` ✓, `ein` ✓, `drivers_license`, `passport_us`, `uk_nino` ✓, `ca_sin` ✓ |
 | Financial | `cc_number` ✓, `cc_brand`, `cc_expiry`, `cc_cvv`, `iban` ✓, `aba_routing` ✓, `bank_account`, `swift_bic` |
 | Health | `mrn`, `npi` ✓, `dea` ✓, `icd10`, `diagnosis`, `medication`, `insurer`, `member_id`, `mbi` ✓ |
-| Secrets | `aws_access_key_id`, `aws_secret_key`, `github_pat`, `slack_token`, `stripe_key`, `private_key`, `password` |
+| Secrets | `aws_access_key_id`, `aws_secret_key`, `github_pat`, `slack_token`, `stripe_key`, `private_key`, `password`, `entra_client_secret` ✓, `azure_devops_pat` ✓, `azure_storage_key` ✓, `azure_storage_connection_string` ✓, `azure_service_bus_connection_string` ✓, `azure_sas` ✓, `gcp_api_key`, `jwt` ✓, `bearer_token` |
 | Network | `ipv4`, `mac`, `username` |
 
-Fields in the same row agree with each other: the email and username match the name, the phone area code, ZIP and driver's license format match the city and state, the card brand and CVV length match the card number, and the diagnosis matches the ICD-10 code.
+Fields in the same row agree with each other: the email and username match the name, the phone area code, ZIP and driver's license format match the city and state, the card brand and CVV length match the card number, and the diagnosis matches the ICD-10 code. The Azure Storage key, connection string and SAS URL in a row share one storage account.
 
 ### Presets
 
@@ -73,6 +73,7 @@ Fields in the same row agree with each other: the email and username match the n
 | `banking` | full_name, aba_routing, bank_account, iban, swift_bic |
 | `gov` | full_name, ssn, itin, drivers_license, passport_us, uk_nino, ca_sin |
 | `secrets` | username, password, aws_access_key_id, aws_secret_key, github_pat, slack_token, stripe_key |
+| `cloud_secrets` | aws_access_key_id, aws_secret_key, github_pat, entra_client_secret, azure_devops_pat, azure_storage_key, azure_storage_connection_string, azure_service_bus_connection_string, azure_sas, gcp_api_key, jwt, bearer_token |
 
 ## API at a glance
 
@@ -87,7 +88,7 @@ Base URL: `https://dlp.cyberdynenetwork.com` (also `https://dlp-datagen.revpixel
 | Parameter | Default | Notes |
 |---|---|---|
 | `fields` | | Comma-separated field ids, in column order. Overrides `preset`. |
-| `preset` | `pii` | `pii`, `pci`, `phi`, `banking`, `gov`, `secrets` |
+| `preset` | `pii` | `pii`, `pci`, `phi`, `banking`, `gov`, `secrets`, `cloud_secrets` |
 | `rows` | `10` | 1 to 10,000; 1 to 2,000 for `xlsx`, `docx` and `pdf` |
 | `format` | `json` | `csv`, `json`, `ndjson`, `txt`, `xlsx`, `docx`, `pdf` |
 | `valid` | `true` | `false`, `0` or `no` for near-misses |
@@ -129,6 +130,7 @@ CI (`.github/workflows/ci.yml`) runs the tests and type checks on every push to 
 |---|---|
 | `src/lib/fields.ts` | Field registry, per-row consistency, presets |
 | `src/lib/checksums.ts` | Luhn, ABA, IBAN mod-97, NPI and DEA algorithms |
+| `src/lib/secrets.ts` | Marvin32, Base62 and Microsoft identifiable-key and CASK builders, ported from microsoft/security-utilities |
 | `src/lib/data.ts` | Seed lists: names, places, ICD-10 codes, medications, insurers |
 | `src/lib/rng.ts` | Seeded PRNG (FNV-1a hash into mulberry32) |
 | `src/lib/generate.ts` | Generation, text serializers, MIME types |
@@ -148,7 +150,9 @@ A new field only changes output for requests that include it; existing seeds kee
 
 ## Responsible use
 
-Everything here is synthetic. Names, addresses and other values are randomly combined from short lists of common names and places, and email addresses use reserved `example.*` domains that can't receive mail. Valid-mode numbers follow real formats and checksums, so a generated SSN or card number could match a real one by chance. Use the output only for testing systems you're authorized to test, and don't submit it to payment processors, government services or other third parties.
+Everything here is synthetic. Secrets and tokens are random values in real formats: none authenticates to anything, the generator never contacts a provider, and resource names use `example` domains and prefixes. They are realistic enough to trip secret scanners and GitHub push protection, so don't commit generated output to real repositories.
+
+Names, addresses and other values are randomly combined from short lists of common names and places, and email addresses use reserved `example.*` domains that can't receive mail. Valid-mode numbers follow real formats and checksums, so a generated SSN or card number could match a real one by chance. Use the output only for testing systems you're authorized to test, and don't submit it to payment processors, government services or other third parties.
 
 ## License
 

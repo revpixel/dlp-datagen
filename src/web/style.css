@@ -361,6 +361,11 @@ button { font: inherit; }
 }
 .group-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tiles { display: grid; gap: 6px; }
+/* Secrets has the most fields: on wider layouts give it two columns of tiles. */
+@media (min-width: 700px) {
+	.group[data-cat="Secrets"] { grid-column: span 2; }
+	.group[data-cat="Secrets"] .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .tile {
 	position: relative;
 	display: flex;

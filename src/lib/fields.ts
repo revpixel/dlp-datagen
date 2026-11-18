@@ -19,6 +19,7 @@ import {
 	type Place,
 } from "./data.ts";
 import { CHARSETS, type Rng } from "./rng.ts";
+import { SEED_DEFAULT0, SEED_MANAGE00, base64, caskKey, identifiableKey } from "./secrets.ts";
 
 export type Category = "Identity" | "Contact" | "Government ID" | "Financial" | "Health" | "Secrets" | "Network";
 
@@ -248,6 +249,82 @@ function base64Body(r: Rng, len: number): string {
 	return r.chars(len, CHARSETS.ALNUM + "+/");
 }
 
+// ---------- Secrets v2 ----------
+// Every value below is random. Fixed parts (prefixes, signatures, parameter
+// names) follow the provider's published format so detectors match, but no
+// value was issued by a provider, so none authenticates to anything.
+
+/** RFC 3986 unreserved characters: what Entra client secrets and bearer tokens use. */
+const URL_UNRESERVED = CHARSETS.ALNUM + "-._~";
+
+function randomBytes(r: Rng, n: number): Uint8Array {
+	const b = new Uint8Array(n);
+	for (let i = 0; i < n; i++) b[i] = r.int(0, 255);
+	return b;
+}
+
+/** Percent-encode the base64 characters that aren't URL-safe, as SAS query strings do. */
+function urlEncodeBase64(s: string): string {
+	return s.replace(/\+/g, "%2B").replace(/\//g, "%2F").replace(/=/g, "%3D");
+}
+
+/** Fictional storage account name (3-24 lowercase letters and digits), shared by the row's storage fields. */
+function storageAccount(row: Row): string {
+	return row.memo("azure_account", () => "example" + row.rng.pick(["data", "files", "backup", "logs", "media", "assets", "reports", "archive"]) + row.rng.digits(4));
+}
+
+/** The row's Azure Storage account key: an identifiable 64-byte key with the +ASt signature. */
+function storageKey(row: Row): string {
+	return row.memo("azure_storage_key", () => identifiableKey(row.rng, 64, "+ASt", SEED_DEFAULT0, row.valid));
+}
+
+/** Fixed window (all of 2025), so timestamps never depend on the current date. */
+const TIME_BASE = Date.UTC(2025, 0, 1) / 1000;
+const TIME_SPAN = 365 * 86400;
+
+function isoSeconds(epoch: number): string {
+	return new Date(epoch * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function azureSas(row: Row): string {
+	const r = row.rng;
+	const start = TIME_BASE + r.int(0, TIME_SPAN - 1);
+	const expiry = start + r.pick([1, 8, 24, 168]) * 3600;
+	const container = r.pick(["reports", "backups", "exports", "uploads", "invoices"]);
+	const blob = r.pick(["2025/q3-summary.csv", "payroll/march.xlsx", "customers.json", "db/backup-01.bak", "archive/records.zip"]);
+	// HMAC-SHA256 signatures are 32 bytes (44 base64 characters). A near-miss has 24.
+	const sig = base64(randomBytes(r, row.valid ? 32 : 24));
+	const query = [
+		`sp=${r.pick(["r", "rw", "rcw", "racwd"])}`,
+		`st=${isoSeconds(start)}`,
+		`se=${isoSeconds(expiry)}`,
+		"spr=https",
+		"sv=2022-11-02",
+		"sr=b",
+		`sig=${urlEncodeBase64(sig)}`,
+	].join("&");
+	return `https://${storageAccount(row)}.blob.core.windows.net/${container}/${blob}?${query}`;
+}
+
+const JWT_HEADER = base64(new TextEncoder().encode('{"alg":"HS256","typ":"JWT"}'), true);
+
+function jwt(row: Row): string {
+	const r = row.rng;
+	const iat = TIME_BASE + r.int(0, TIME_SPAN - 1);
+	const claims = {
+		iss: "https://auth.example.com",
+		sub: `user-${r.digits(6)}`,
+		aud: "api.example.org",
+		iat,
+		exp: iat + 3600,
+		jti: r.chars(16, "0123456789abcdef"),
+	};
+	const payload = base64(new TextEncoder().encode(JSON.stringify(claims)), true);
+	const signature = base64(randomBytes(r, 32), true);
+	// A JWS needs three segments; the near-miss drops the signature.
+	return row.valid ? `${JWT_HEADER}.${payload}.${signature}` : `${JWT_HEADER}.${payload}`;
+}
+
 // ---------- registry ----------
 
 export const FIELDS: readonly Field[] = [
@@ -407,6 +484,82 @@ export const FIELDS: readonly Field[] = [
 		description: "Random 12-16 character password",
 		gen: (r) => r.rng.chars(r.rng.int(12, 16), CHARSETS.ALNUM + "!@#$%^&*"),
 	},
+	{
+		id: "entra_client_secret",
+		label: "Entra client secret",
+		category: "Secrets",
+		checksum: true,
+		description: "40 characters with 8Q~ at positions 4-6; near-miss is one character short",
+		gen: (r) => r.rng.chars(3, URL_UNRESERVED) + "8Q~" + r.rng.chars(r.valid ? 34 : 33, URL_UNRESERVED),
+	},
+	{
+		id: "azure_devops_pat",
+		label: "Azure DevOps PAT",
+		category: "Secrets",
+		checksum: true,
+		description: "84 characters with JQQJ99 and AZDO signatures and a Marvin32 checksum",
+		gen: (r) => caskKey(r.rng, "AZDO", "AAAA", r.valid),
+	},
+	{
+		id: "azure_storage_key",
+		label: "Azure storage account key",
+		category: "Secrets",
+		checksum: true,
+		description: "88 base64 characters with the +ASt signature and a Marvin32 checksum",
+		gen: storageKey,
+	},
+	{
+		id: "azure_storage_connection_string",
+		label: "Azure Storage connection string",
+		category: "Secrets",
+		checksum: true,
+		description: "AccountName and AccountKey connection string; the key has a Marvin32 checksum",
+		gen: (r) => `DefaultEndpointsProtocol=https;AccountName=${storageAccount(r)};AccountKey=${storageKey(r)};EndpointSuffix=core.windows.net`,
+	},
+	{
+		id: "azure_service_bus_connection_string",
+		label: "Azure Service Bus connection string",
+		category: "Secrets",
+		checksum: true,
+		description: "Endpoint and SharedAccessKey connection string; the key has a Marvin32 checksum",
+		gen: (r) => {
+			const ns = `example-${r.rng.pick(["orders", "billing", "events", "telemetry", "notifications"])}-${r.rng.digits(4)}`;
+			const key = identifiableKey(r.rng, 32, "+ASb", SEED_MANAGE00, r.valid);
+			return `Endpoint=sb://${ns}.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=${key}`;
+		},
+	},
+	{
+		id: "azure_sas",
+		label: "Azure Storage SAS URL",
+		category: "Secrets",
+		checksum: true,
+		description: "Blob URL with a service SAS; sig is a 32-byte HMAC, 24 bytes in a near-miss",
+		gen: azureSas,
+	},
+	{
+		id: "gcp_api_key",
+		label: "Google Cloud API key",
+		category: "Secrets",
+		checksum: false,
+		description: "AIza followed by 35 characters",
+		gen: (r) => "AIzaSy" + r.rng.chars(33, CHARSETS.ALNUM + "-_"),
+	},
+	{
+		id: "jwt",
+		label: "JSON Web Token (JWT)",
+		category: "Secrets",
+		checksum: true,
+		description: "HS256 JWT with decodable header and claims; near-miss has no signature segment",
+		gen: jwt,
+	},
+	{
+		id: "bearer_token",
+		label: "Bearer token (HTTP header)",
+		category: "Secrets",
+		checksum: false,
+		description: "Authorization: Bearer header with an opaque 32-48 character token",
+		gen: (r) => `Authorization: Bearer ${r.rng.chars(1, CHARSETS.ALNUM)}${r.rng.chars(r.rng.int(31, 47), URL_UNRESERVED)}`,
+	},
 
 	// Network
 	{ id: "ipv4", label: "IPv4 address", category: "Network", checksum: false, description: "Dotted quad", gen: (r) => [r.rng.int(1, 223), r.rng.int(0, 255), r.rng.int(0, 255), r.rng.int(1, 254)].join(".") },
@@ -430,4 +583,21 @@ export const PRESETS: Readonly<Record<string, { label: string; fields: readonly 
 	banking: { label: "Banking", fields: ["full_name", "aba_routing", "bank_account", "iban", "swift_bic"] },
 	gov: { label: "Government IDs", fields: ["full_name", "ssn", "itin", "drivers_license", "passport_us", "uk_nino", "ca_sin"] },
 	secrets: { label: "Secrets & keys", fields: ["username", "password", "aws_access_key_id", "aws_secret_key", "github_pat", "slack_token", "stripe_key"] },
+	cloud_secrets: {
+		label: "Cloud secrets & tokens",
+		fields: [
+			"aws_access_key_id",
+			"aws_secret_key",
+			"github_pat",
+			"entra_client_secret",
+			"azure_devops_pat",
+			"azure_storage_key",
+			"azure_storage_connection_string",
+			"azure_service_bus_connection_string",
+			"azure_sas",
+			"gcp_api_key",
+			"jwt",
+			"bearer_token",
+		],
+	},
 };

@@ -14,7 +14,7 @@ The generator writes the same records in seven formats. With a fixed seed, every
 
 The web UI allows more rows because it generates in the browser: 100,000 for CSV, JSON, JSON Lines, TXT and XLSX, and 10,000 for DOCX and PDF.
 
-All files are UTF-8 (the PDF is ASCII). Every generated value is plain ASCII, and only `private_key` contains line breaks. The examples below use `fields=full_name,ssn,cc_number&rows=2&seed=demo`.
+All files are UTF-8 (the PDF is ASCII). Every generated value is plain ASCII, and only `private_key` contains line breaks. Connection strings, SAS URLs, JWTs and the bearer header contain `= ; & ? : /` but never a comma, double quote or line break, so they need no CSV quoting. The examples below use `fields=full_name,ssn,cc_number&rows=2&seed=demo`.
 
 See also: [field reference](fields.md) · [API reference](api.md)
 
@@ -97,7 +97,7 @@ Credit card number: 377940508381953
 - One worksheet named **DLP test data**.
 - Row 1 has the field labels in bold, frozen so it stays visible when scrolling. `header=false` removes it, and the data starts in row 1 with nothing frozen.
 - One record per row, one field per column, in the requested order.
-- Every cell is stored as text, so leading zeros and long digit strings (card numbers, routing numbers) stay exact instead of turning into numbers.
+- Every cell is stored as text, so leading zeros and long digit strings (card numbers, routing numbers) stay exact instead of turning into numbers, and values starting with `=` are never read as formulas. `&` in SAS URLs is XML-escaped in the file and shows as `&` in the cell.
 - Column widths fit the label and the first 200 values (up to 60 characters).
 - `private_key` keeps its line breaks inside the cell.
 - Written without dependencies by `src/lib/documents.ts`.
@@ -121,11 +121,11 @@ Credit card number: 377940508381953
 - Real text using the standard PDF fonts (no embedded fonts, no images), so DLP engines and `pdftotext` can extract every value.
 - Each page has a **DLP test data** title at the top and a footer: "Synthetic records for DLP testing. No real person's data. Page X of Y".
 - Each record has a bold **Record N** heading (Helvetica Bold), kept on the same page as its first line, then one `Label: value` line per field in Courier 9.5 pt.
-- Lines longer than 88 characters wrap onto the next line. Continuation lines of `private_key` are indented two spaces.
+- A `Label: value` line longer than 88 characters puts the label on its own line and the value below it, broken after `=`, `?` or `.` and before `;` or `&`. That keeps each key and signature whole on one line: the 88-character storage `AccountKey` gets a line to itself, and a SAS `sig` is never split. A piece longer than 88 characters (the payload of a JWT) is cut at 88. Continuation lines of `private_key` are indented two spaces.
 - The document title in the file's properties is "DLP test data".
 - `header` is ignored.
 
-No current field produces a line that long, so values are never split across lines. Text extraction can still join or split lines differently from the layout, depending on the extractor.
+Only Secrets v2 fields are long enough to wrap: `azure_storage_connection_string`, `azure_service_bus_connection_string`, `azure_sas` and `jwt`. In extracted PDF text those values are split across lines, so a rule that needs the whole string contiguous (a full connection string or JWT regex) won't match in PDF even though it matches in the other formats. Rules that look for the key or signature itself, with a keyword nearby, still match. Use TXT, DOCX or XLSX when you need the values unbroken. Text extraction can also join or split lines differently from the layout, depending on the extractor.
 
 ## Determinism
 

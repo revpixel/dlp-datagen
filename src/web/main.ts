@@ -45,6 +45,7 @@ const modeHint = $("mode-hint");
 let output: { data: string | Uint8Array; format: Format } | null = null;
 
 $("stat-fields").textContent = String(FIELDS.length);
+$("stat-rules").textContent = String(FIELDS.filter((f) => f.checksum).length);
 
 // ---------- theme ----------
 function currentTheme(): "light" | "dark" {

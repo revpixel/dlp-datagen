@@ -167,6 +167,7 @@ const SIZE = 9.5;
 const LEADING = 13;
 const MONO_WIDTH = 0.6 * SIZE; // Courier glyphs are 600/1000 em
 const WRAP = Math.floor((PAGE_W - 2 * MARGIN) / MONO_WIDTH);
+export const WRAP_FOR_TESTS = WRAP;
 
 function pdfText(s: string): string {
 	// Standard fonts use WinAnsi; keep printable ASCII only and escape.
@@ -179,13 +180,43 @@ interface Line {
 	gap?: number;
 }
 
+/**
+ * Split a long single-line value into lines of at most WRAP characters,
+ * breaking after "=", "?" or "." and before ";" or "&" so keys, signatures and
+ * JWT segments stay whole where they fit on a line. Anything longer than a
+ * line is cut at WRAP.
+ */
+export function wrapValue(value: string): string[] {
+	const out: string[] = [];
+	let line = "";
+	for (const token of value.split(/(?<=[=?.])|(?=[;&])/)) {
+		if (line.length + token.length <= WRAP) {
+			line += token;
+			continue;
+		}
+		if (line) out.push(line);
+		line = token;
+		while (line.length > WRAP) {
+			out.push(line.slice(0, WRAP));
+			line = line.slice(WRAP);
+		}
+	}
+	if (line) out.push(line);
+	return out;
+}
+
 export function toPdf(ds: Dataset): Uint8Array {
 	const lines: Line[] = [];
 	ds.records.forEach((rec, n) => {
 		lines.push({ text: `Record ${n + 1}`, font: "F2", gap: n === 0 ? 0 : 8 });
 		ds.fields.forEach((f, i) => {
 			const valueLines = rec[i].split("\n");
-			const out = [`${f.label}: ${valueLines[0]}`, ...valueLines.slice(1).map((v) => "  " + v)];
+			const first = `${f.label}: ${valueLines[0]}`;
+			// A single-line value too long for "Label: value" goes under its label, wrapped at delimiters.
+			const out =
+				first.length > WRAP && valueLines.length === 1
+					? [`${f.label}:`, ...wrapValue(valueLines[0])]
+					: [first, ...valueLines.slice(1).map((v) => "  " + v)];
 			for (const text of out) {
 				for (let p = 0; p < text.length || p === 0; p += WRAP) lines.push({ text: text.slice(p, p + WRAP), font: "F1" });
 			}

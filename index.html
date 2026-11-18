@@ -63,9 +63,9 @@
 				near-misses that shouldn't trigger at all. Everything is generated in your browser.
 			</p>
 			<ul class="stats" aria-label="At a glance">
-				<li><strong id="stat-fields">44</strong> field types</li>
+				<li><strong id="stat-fields">54</strong> field types</li>
 				<li><strong>7</strong> formats incl. XLSX, DOCX, PDF</li>
-				<li><strong>11</strong> checksum validators</li>
+				<li><strong id="stat-rules">18</strong> checksum &amp; format rules</li>
 				<li><strong>0</strong> real people</li>
 			</ul>
 		</section>
@@ -227,7 +227,7 @@
 						</div>
 						<div class="param-row" role="row">
 							<span class="p-name" role="cell"><code>preset</code></span>
-							<span class="p-values" role="cell"><code>pii</code> <code>pci</code> <code>phi</code> <code>banking</code> <code>gov</code> <code>secrets</code>. Ignored when <code>fields</code> is set.</span>
+							<span class="p-values" role="cell"><code>pii</code> <code>pci</code> <code>phi</code> <code>banking</code> <code>gov</code> <code>secrets</code> <code>cloud_secrets</code>. Ignored when <code>fields</code> is set.</span>
 							<span class="p-default" role="cell"><code>pii</code></span>
 						</div>
 						<div class="param-row" role="row">
@@ -242,7 +242,7 @@
 						</div>
 						<div class="param-row" role="row">
 							<span class="p-name" role="cell"><code>valid</code></span>
-							<span class="p-values" role="cell"><code>false</code>, <code>0</code> or <code>no</code> (any case) returns near-misses: values that look right but fail their checksum. Any other value means valid. Near-misses are made only for fields with <code>"checksum": true</code>.</span>
+							<span class="p-values" role="cell"><code>false</code>, <code>0</code> or <code>no</code> (any case) returns near-misses: values that look right but fail their checksum or format rule. Any other value means valid. Near-misses are made only for fields with <code>"checksum": true</code>.</span>
 							<span class="p-default" role="cell"><code>true</code></span>
 						</div>
 						<div class="param-row" role="row">
@@ -270,7 +270,7 @@
 						<div class="fmt-row" role="row"><code role="cell">txt</code><span role="cell"><code>text/plain</code></span><span role="cell">Labelled records (<code>SSN: …</code>) for keyword-proximity rules</span></div>
 						<div class="fmt-row" role="row"><code role="cell">xlsx</code><span role="cell">Excel workbook</span><span role="cell">One sheet; bold, frozen header row of field labels</span></div>
 						<div class="fmt-row" role="row"><code role="cell">docx</code><span role="cell">Word document</span><span role="cell">Labelled records</span></div>
-						<div class="fmt-row" role="row"><code role="cell">pdf</code><span role="cell">PDF</span><span role="cell">Labelled records as real, extractable text</span></div>
+						<div class="fmt-row" role="row"><code role="cell">pdf</code><span role="cell">PDF</span><span role="cell">Labelled records as real, extractable text; long values wrap at <code>;</code> <code>&amp;</code> <code>=</code> so keys stay on one line</span></div>
 					</div>
 					<p class="ep-note">Every response carries <code>X-DLP-Seed</code> and <code>Cache-Control: no-store</code>, and allows any origin (CORS), with <code>X-DLP-Seed</code> readable from browser code.</p>
 				</article>
@@ -279,7 +279,7 @@
 					<h3><span class="verb">GET</span> <code>/api/fields</code></h3>
 					<p class="ep-desc">Everything the generator supports, for programmatic discovery: categories, every field (with whether it has a checksum), presets and the fields they contain, formats, and the row limits. No parameters.</p>
 					<details class="sample">
-						<summary>Sample response <span>trimmed: <code>fields</code> has every field, <code>presets</code> all six</span></summary>
+						<summary>Sample response <span>trimmed: <code>fields</code> has every field, <code>presets</code> all seven</span></summary>
 						<pre class="code-block"><code>{
   "categories": ["Identity", "Contact", "Government ID", "Financial", "Health", "Secrets", "Network"],
   "fields": [
@@ -343,6 +343,10 @@
 						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=phi&amp;rows=20&amp;format=pdf"</span> <span class="tok-flag">-o phi.pdf</span></code></pre>
 					</li>
 					<li class="example">
+						<div class="ex-head"><span class="ex-title">Cloud secrets and tokens, labelled for context</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
+						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/generate?preset=cloud_secrets&amp;rows=25&amp;format=txt"</span></code></pre>
+					</li>
+					<li class="example">
 						<div class="ex-head"><span class="ex-title">Discover fields, presets and formats</span><button type="button" class="ghost sm" data-copy>Copy</button></div>
 						<pre><code><span class="tok-cmd">curl</span> <span class="tok-url">"https://dlp.cyberdynenetwork.com/api/fields"</span></code></pre>
 					</li>
@@ -380,7 +384,8 @@
 		<footer class="wrap foot">
 			<p>
 				Every value is synthetic. Valid-mode numbers follow real formats and checksums, so treat output as test data and keep it
-				out of production systems. Emails use reserved <code>example.*</code> domains.
+				out of production systems. Emails use reserved <code>example.*</code> domains. Secrets and tokens are random values in real formats: none
+				authenticates to anything, but they can still trip secret scanners and push protection.
 			</p>
 			<p><a href="https://github.com/revpixel/dlp-datagen">Open source on GitHub</a> · MIT licence</p>
 		</footer>
