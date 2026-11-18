@@ -11,6 +11,21 @@ const CORS = {
 	"Access-Control-Expose-Headers": "X-DLP-Seed",
 };
 
+/**
+ * Header values can't hold every character: the Headers constructor throws on
+ * anything above U+00FF, and CR, LF and NUL are invalid. Tab and printable
+ * ASCII seeds are sent as-is, exactly as before. Any other seed is sent as
+ * UTF-8 percent-encoding, flagged by X-DLP-Seed-Encoding: percent.
+ */
+function seedHeaders(seed: string): Record<string, string> {
+	if (/^[\t\x20-\x7e]*$/.test(seed)) return { "X-DLP-Seed": seed };
+	return {
+		"X-DLP-Seed": encodeURIComponent(seed),
+		"X-DLP-Seed-Encoding": "percent",
+		"Access-Control-Expose-Headers": "X-DLP-Seed, X-DLP-Seed-Encoding",
+	};
+}
+
 function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body, null, 2) + "\n", {
 		status,
@@ -44,9 +59,9 @@ async function generateResponse(p: URLSearchParams): Promise<Response> {
 		const ds = generate({ fields, rows, valid, seed: p.get("seed") ?? undefined });
 		const headers: Record<string, string> = {
 			"Content-Type": MIME[format],
-			"X-DLP-Seed": ds.seed,
 			"Cache-Control": "no-store",
 			...CORS,
+			...seedHeaders(ds.seed),
 		};
 		if (p.has("download") || isBinary(format)) {
 			headers["Content-Disposition"] = `attachment; filename="dlp-test-data.${EXTENSION[format]}"`;

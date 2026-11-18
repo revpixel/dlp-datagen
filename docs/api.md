@@ -117,6 +117,23 @@ In invalid mode, every field marked ✓ in the [field reference](fields.md) fail
 
 Any string. Leading and trailing whitespace is trimmed; an empty or blank seed means "pick one at random". The seed used, given or random, is always returned in the `X-DLP-Seed` response header, so you can reproduce any response later. See [Repeatable output](#repeatable-output).
 
+Seeds can use any Unicode text (send it URL-encoded as UTF-8, as usual: `seed=%CE%94-test` for `Δ-test`). HTTP headers can't carry every character, so the header has two forms:
+
+- **Printable ASCII and tab** (`U+0020`–`U+007E`, `U+0009`): `X-DLP-Seed` is the seed exactly as used, with no other change. Random seeds are always in this form.
+- **Anything else** (accented letters, other scripts, emoji, control characters): `X-DLP-Seed` is the seed percent-encoded as UTF-8, as JavaScript's `encodeURIComponent` does, and the response adds `X-DLP-Seed-Encoding: percent`. Decode it with `decodeURIComponent` (JavaScript), `urllib.parse.unquote` (Python) or `[uri]::UnescapeDataString` (PowerShell).
+
+```http
+GET /api/generate?seed=%CE%94-test
+```
+
+```http
+X-DLP-Seed: %CE%94-test
+X-DLP-Seed-Encoding: percent
+Access-Control-Expose-Headers: X-DLP-Seed, X-DLP-Seed-Encoding
+```
+
+Only decode when `X-DLP-Seed-Encoding` is `percent`: an ASCII seed such as `100%` or `%41` is returned unchanged, without the companion header.
+
 #### `header`
 
 Only the exact value `false` turns the header off (`header=0` and `header=no` keep it). It applies to `csv` (a row of field ids) and `xlsx` (a bold, frozen row of field labels). Other formats ignore it.
@@ -130,12 +147,13 @@ If `download` is present with any value, even `download=false`, the response get
 | Header | Value |
 |---|---|
 | `Content-Type` | Per format; see the table above |
-| `X-DLP-Seed` | The seed used for this response |
+| `X-DLP-Seed` | The seed used for this response; percent-encoded if it isn't printable ASCII (see [`seed`](#seed)) |
+| `X-DLP-Seed-Encoding` | `percent`, only when `X-DLP-Seed` is percent-encoded |
 | `Content-Disposition` | `attachment; filename="dlp-test-data.<ext>"`, for document formats or when `download` is set |
 | `Cache-Control` | `no-store` |
 | `Access-Control-Allow-Origin` | `*` |
 | `Access-Control-Allow-Methods` | `GET, HEAD, OPTIONS` |
-| `Access-Control-Expose-Headers` | `X-DLP-Seed`, so browser code can read the seed |
+| `Access-Control-Expose-Headers` | `X-DLP-Seed`, so browser code can read the seed; `X-DLP-Seed, X-DLP-Seed-Encoding` when the seed is percent-encoded |
 
 ---
 
