@@ -64,10 +64,28 @@ $("theme-toggle").addEventListener("click", () => {
 });
 
 // ---------- field tiles ----------
-for (const cat of CATEGORIES) {
+// Desktop: two independent flows with Secrets spanning both below them.
+// Narrow screens: the flows dissolve (display: contents) and each group's
+// `order` restores the single column in category order.
+const FLOW: Record<Category, "left" | "right" | "full"> = {
+	Identity: "left",
+	"Government ID": "left",
+	Health: "left",
+	Contact: "right",
+	Financial: "right",
+	Network: "right",
+	Secrets: "full",
+};
+const flows = { left: document.createElement("div"), right: document.createElement("div") };
+flows.left.className = "flow flow-left";
+flows.right.className = "flow flow-right";
+groupsEl.append(flows.left, flows.right);
+
+for (const [index, cat] of CATEGORIES.entries()) {
 	const group = document.createElement("div");
 	group.className = "group";
 	group.dataset.cat = cat;
+	group.style.order = String(index);
 	const head = document.createElement("h3");
 	head.className = "group-head";
 	const icon = document.createElement("span");
@@ -98,7 +116,8 @@ for (const cat of CATEGORIES) {
 		tiles.append(label);
 	}
 	group.append(head, tiles);
-	groupsEl.append(group);
+	const flow = FLOW[cat];
+	(flow === "full" ? groupsEl : flows[flow]).append(group);
 }
 
 for (const [key, p] of Object.entries(PRESETS)) {
@@ -115,9 +134,14 @@ function boxes(): HTMLInputElement[] {
 	return [...groupsEl.querySelectorAll<HTMLInputElement>('input[name="field"]')];
 }
 
-/** Selected fields, in registry order. */
+const REGISTRY_INDEX = new Map(FIELDS.map((f, i) => [f.id, i]));
+
+/** Selected fields, in registry order (not on-screen order, which varies with the layout). */
 function selectedFields(): string[] {
-	return boxes().filter((b) => b.checked).map((b) => b.value);
+	return boxes()
+		.filter((b) => b.checked)
+		.map((b) => b.value)
+		.sort((a, b) => REGISTRY_INDEX.get(a)! - REGISTRY_INDEX.get(b)!);
 }
 
 function setFields(ids: readonly string[]) {

@@ -340,7 +340,9 @@ button { font: inherit; }
 
 /* ---------- presets & field tiles ---------- */
 .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.field-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 22px 18px; }
+/* Narrow: one column in category order (each group carries `order`; the flow wrappers dissolve). */
+.field-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px 18px; }
+.flow { display: contents; }
 .group { --cat: var(--accent); }
 .group[data-cat="Identity"] { --cat: var(--c-identity); }
 .group[data-cat="Contact"] { --cat: var(--c-contact); }
@@ -361,9 +363,14 @@ button { font: inherit; }
 }
 .group-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tiles { display: grid; gap: 6px; }
-/* Secrets has the most fields: on wider layouts give it two columns of tiles. */
+/* Desktop: Identity / Government ID / Health flow down the left, Contact / Financial /
+   Network down the right, and Secrets (the largest group) spans both below them. */
 @media (min-width: 700px) {
-	.group[data-cat="Secrets"] { grid-column: span 2; }
+	.field-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.flow { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+	.flow-left { grid-column: 1; }
+	.flow-right { grid-column: 2; }
+	.group[data-cat="Secrets"] { grid-column: 1 / -1; }
 	.group[data-cat="Secrets"] .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .tile {
@@ -753,7 +760,6 @@ details.sample summary span { color: var(--faint); font-weight: 400; font-size: 
 	.card { padding: 16px; border-radius: 16px; }
 	.nav-links a { padding: 6px 7px; }
 	.crumbs .root { display: none; }
-	.field-groups { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
