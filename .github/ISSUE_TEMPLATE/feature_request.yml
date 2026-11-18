@@ -1,0 +1,72 @@
+name: ✨ Feature, field or format request
+description: Suggest a new field, preset, output format, or an improvement to the API or web UI.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! New fields are added when their format can be verified and generated safely: please link the official format or detector definition where there is one.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: What kind of request is this?
+      options:
+        - New field (an identifier, number or secret type)
+        - Change to an existing field
+        - New or changed preset
+        - Output format
+        - API
+        - Web UI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to test?
+      description: The DLP or secret-scanning rule, product or scenario, and what's missing today.
+      placeholder: "We detect ... with ..., but the generator has no way to produce ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+      description: Describe the change. For a new field, include its exact format.
+    validations:
+      required: true
+
+  - type: textarea
+    id: format_source
+    attributes:
+      label: Format source (new or changed fields)
+      description: |
+        A link to the authoritative format: an official specification, the issuing organization's documentation, or a detector definition (for example a Microsoft Purview sensitive information type). Mention any checksum or structure rule that a near-miss should break.
+      placeholder: "https://learn.microsoft.com/en-us/purview/sit-defn-..."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Workarounds you use today, or other ways to solve it.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Links, examples, or screenshots. Use made-up or generated values only.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues for this request.
+          required: true
+        - label: This request contains no real personal data or real credentials.
+          required: true

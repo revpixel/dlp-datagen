@@ -379,15 +379,39 @@
 			</div>
 			</div>
 			</div>
+
+			<!-- Static links, so they work without JavaScript. -->
+			<section class="card support-card" id="support" aria-labelledby="support-h">
+				<div class="card-head">
+					<h2 id="support-h"><span class="step">/</span> Support</h2>
+				</div>
+				<ul class="support">
+					<li>
+						<a class="support-link" href="https://github.com/revpixel/dlp-datagen/issues">
+							<span class="support-title">Report an issue <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7m0 0H9m8 0v8" /></svg></span>
+							<span class="support-text">A value, file or API response isn't behaving as expected?</span>
+						</a>
+					</li>
+					<li>
+						<a class="support-link" href="https://github.com/revpixel/dlp-datagen/issues/new?template=feature_request.yml">
+							<span class="support-title">Request a field or feature <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7m0 0H9m8 0v8" /></svg></span>
+							<span class="support-text">A data type, preset or format your DLP tests need.</span>
+						</a>
+					</li>
+				</ul>
+			</section>
 		</main>
 
-		<footer class="wrap foot">
+		<footer class="foot">
+			<nav class="foot-links" aria-label="Footer">
+				<a href="https://cyberdynenetwork.com/">Cyberdyne Network</a>
+				<a href="https://github.com/revpixel/dlp-datagen">Source repository</a>
+				<a href="https://github.com/revpixel/dlp-datagen/issues">Issues</a>
+			</nav>
 			<p>
-				Every value is synthetic. Valid-mode numbers follow real formats and checksums, so treat output as test data and keep it
-				out of production systems. Emails use reserved <code>example.*</code> domains. Secrets and tokens are random values in real formats: none
-				authenticates to anything, but they can still trip secret scanners and push protection.
+				Every value is synthetic: valid-mode values pass real checks, and secrets can trip scanners and push protection, but none is real
+				or works. MIT licence.
 			</p>
-			<p><a href="https://github.com/revpixel/dlp-datagen">Open source on GitHub</a> · MIT licence</p>
 		</footer>
 
 		<script type="module" src="/src/web/main.ts"></script>

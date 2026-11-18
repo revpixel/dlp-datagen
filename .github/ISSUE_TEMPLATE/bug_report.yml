@@ -1,0 +1,116 @@
+name: 🐛 Bug report
+description: A generated value, file, API response or the web UI doesn't work as expected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem! A few details make it much quicker to track down.
+
+        **Before you start:**
+        - The [field reference](https://github.com/revpixel/dlp-datagen/blob/main/docs/fields.md) lists the exact format and near-miss rule for every field. A value that "looks wrong" may be a deliberate near-miss (`valid=false`).
+        - A **seed** reproduces the exact same data. Include one if you can: it's in the preview header in the web UI and in the `X-DLP-Seed` response header from the API.
+        - Everything this tool generates is synthetic, but **don't paste real data or real credentials** from your own systems into an issue.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does the problem happen?
+      options:
+        - Generated values (a field's format, checksum or near-miss)
+        - Output file (CSV, JSON, JSON Lines, TXT, XLSX, DOCX or PDF)
+        - API (/api/generate, /api/fields, errors, headers)
+        - Web UI (dlp.cyberdynenetwork.com)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: fields
+    attributes:
+      label: Field ids or preset
+      description: The fields or preset involved, as API ids from `/api/fields`.
+      placeholder: "e.g. azure_sas, iban, or preset=cloud_secrets"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Output format
+      multiple: true
+      options:
+        - csv
+        - json
+        - ndjson
+        - txt
+        - xlsx
+        - docx
+        - pdf
+        - Not format-specific
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Data mode
+      options:
+        - Valid
+        - Near-miss (valid=false)
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: reproduce
+    attributes:
+      label: Seed, or the request that shows it
+      description: A seed, or the full API URL or curl command (the web UI's **Use the API** box has it ready to copy).
+      placeholder: "https://dlp.cyberdynenetwork.com/api/generate?preset=pci&rows=5&seed=demo"
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: For a format or checksum problem, link the rule or documentation the value should follow if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Include the value, error message or response. For a DLP or secret-scanning tool, say which product and rule matched or missed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error
+      description: Paste the relevant output. It's shown as code automatically, so no backticks needed.
+      render: text
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS (web UI problems only)
+      placeholder: "e.g. Edge 142 on Windows 11"
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, links, or anything else that might help.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues and this hasn't been reported yet.
+          required: true
+        - label: This issue contains only generated test data, no real personal data or real credentials.
+          required: true

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Field reference
+    url: https://github.com/revpixel/dlp-datagen/blob/main/docs/fields.md
+    about: The format, checksum and near-miss rule for every field. Check here before reporting a value as wrong.
+  - name: 🔌 API reference
+    url: https://github.com/revpixel/dlp-datagen/blob/main/docs/api.md
+    about: Every parameter, response header, error and limit.
+  - name: 🧪 Try it live
+    url: https://dlp.cyberdynenetwork.com
+    about: The web UI and API, to reproduce a problem with a seed.
