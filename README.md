@@ -117,7 +117,7 @@ Both use the same generator code (`src/lib/`), so the same fields, seed and mode
 - **Quick copy:** one value for one field.
 - **Favorites:** pinned fields for one-click values.
 
-Generation runs locally and offline. The extension asks only for the `sidePanel` and `storage` permissions, and it never reads the pages you visit. It isn't on the Chrome Web Store yet: run `npm run ext:build` and load `extension/dist` unpacked. The [extension README](extension/README.md) covers installation, packaging, permissions and limits, and [PRIVACY.md](extension/PRIVACY.md) has the privacy statement.
+Generation runs locally and offline. The extension asks only for the `sidePanel` and `storage` permissions, and it never reads the pages you visit. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/dlp-data-generator/obpnoonfegdaofbaeokfiklcckdmpgnm), or run `npm run ext:build` and load `extension/dist` unpacked. The [extension README](extension/README.md) covers installation, packaging, permissions and limits, and [PRIVACY.md](extension/PRIVACY.md) has the privacy statement.
 
 ## Development
 

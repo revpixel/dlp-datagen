@@ -6,7 +6,7 @@ A Chrome extension that keeps the [DLP Test Data Generator](https://dlp.cyberdyn
 
 It runs the same generator as the web app and API, bundled into the extension. Everything is generated locally, works offline, and nothing is sent anywhere.
 
-> Version 0.1.0 (MVP). Not yet published to the Chrome Web Store: [load it unpacked](#load-the-unpacked-extension) for now.
+> Version 0.1.0. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/dlp-data-generator/obpnoonfegdaofbaeokfiklcckdmpgnm), or [load it unpacked](#load-the-unpacked-extension) to run a local build.
 
 ## What it does
 
@@ -165,7 +165,6 @@ For the store listing:
 - **Manual copy and paste:** no form filling, page scanning, context-menu entries or keyboard shortcuts by design. The extension never touches the pages you test.
 - **No history:** a value is gone when the panel closes, unless you regenerate it from its seed.
 - **Line endings:** copied text uses `\n` line endings, except CSV, which uses `\r\n`. Your operating system's clipboard may convert them (Windows uses `\r\n`).
-- **Not on the Chrome Web Store yet.**
 
 ## Relationship to the web app
 

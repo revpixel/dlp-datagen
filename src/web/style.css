@@ -729,6 +729,63 @@ details.sample summary span { color: var(--faint); font-weight: 400; font-size: 
 .support-link:hover .support-title svg { transform: translate(2px, -2px); }
 .support-text { color: var(--muted); font-size: 0.85rem; }
 
+/* ---------- chrome extension ---------- */
+.ext-card {
+	position: relative;
+	overflow: hidden;
+	display: grid;
+	grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+	gap: 32px;
+	align-items: center;
+	padding: 34px;
+	border-color: color-mix(in srgb, var(--grad-b) 35%, var(--border));
+	background:
+		radial-gradient(60% 80% at 100% 0%, var(--glow-b), transparent 70%),
+		radial-gradient(50% 70% at 0% 100%, var(--glow-a), transparent 70%),
+		var(--surface);
+}
+.ext-card .eyebrow { margin-bottom: 14px; }
+.ext-card h2 { display: block; margin: 0 0 12px; font-size: clamp(1.6rem, 3.2vw, 2.4rem); line-height: 1.08; letter-spacing: -0.03em; }
+.ext-lede { margin: 0; max-width: 56ch; color: var(--muted); }
+.ext-points { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; font-size: 0.9rem; }
+.ext-points li { position: relative; padding-left: 18px; }
+.ext-points li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+.ext-points code { font-size: 0.82em; }
+.ext-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 24px; }
+.ext-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 20px;
+	border-radius: 12px;
+	color: #fff;
+	font-weight: 600;
+	text-decoration: none;
+	background: linear-gradient(110deg, var(--grad-a), var(--grad-b));
+	box-shadow: 0 8px 24px -10px var(--grad-b);
+	transition: transform 0.12s, box-shadow 0.2s;
+}
+.ext-cta svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ext-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px var(--grad-b); }
+.ext-more { color: var(--muted); font-size: 0.88rem; text-decoration: underline; text-underline-offset: 3px; }
+.ext-more:hover { color: var(--text); }
+.ext-shot { justify-self: center; width: min(100%, 400px); }
+.ext-shot img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border-radius: 14px;
+	border: 1px solid #2a3356;
+	box-shadow: 0 24px 60px -24px rgba(10, 14, 40, 0.55);
+}
+@media (max-width: 860px) {
+	.ext-card { grid-template-columns: minmax(0, 1fr); padding: 24px; }
+}
+@media (max-width: 560px) {
+	.ext-card { padding: 18px; }
+	.ext-points { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* ---------- footer ---------- */
 .foot {
 	/* Same content width as .wrap (1180px less its 20px padding), so the rule lines up with the cards. */
